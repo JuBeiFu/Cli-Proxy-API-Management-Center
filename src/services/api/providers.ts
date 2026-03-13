@@ -51,6 +51,8 @@ const serializeModelAliases = (models?: ModelAlias[]) =>
 const serializeApiKeyEntry = (entry: ApiKeyEntry) => {
   const payload: Record<string, unknown> = { 'api-key': entry.apiKey };
   if (entry.proxyUrl) payload['proxy-url'] = entry.proxyUrl;
+  if (entry.proxyProfile?.trim()) payload['proxy-profile'] = entry.proxyProfile.trim();
+  if (entry.planType?.trim()) payload['plan-type'] = entry.planType.trim();
   const headers = serializeHeaders(entry.headers);
   if (headers) payload.headers = headers;
   return payload;
@@ -63,6 +65,8 @@ const serializeProviderKey = (config: ProviderKeyConfig) => {
   if (config.baseUrl) payload['base-url'] = config.baseUrl;
   if (config.websockets !== undefined) payload.websockets = config.websockets;
   if (config.proxyUrl) payload['proxy-url'] = config.proxyUrl;
+  if (config.proxyProfile?.trim()) payload['proxy-profile'] = config.proxyProfile.trim();
+  if (config.planType?.trim()) payload['plan-type'] = config.planType.trim();
   const headers = serializeHeaders(config.headers);
   if (headers) payload.headers = headers;
   const models = serializeModelAliases(config.models);
@@ -103,6 +107,8 @@ const serializeVertexKey = (config: ProviderKeyConfig) => {
   if (config.prefix?.trim()) payload.prefix = config.prefix.trim();
   if (config.baseUrl) payload['base-url'] = config.baseUrl;
   if (config.proxyUrl) payload['proxy-url'] = config.proxyUrl;
+  if (config.proxyProfile?.trim()) payload['proxy-profile'] = config.proxyProfile.trim();
+  if (config.planType?.trim()) payload['plan-type'] = config.planType.trim();
   const headers = serializeHeaders(config.headers);
   if (headers) payload.headers = headers;
   const models = serializeVertexModelAliases(config.models);
@@ -119,6 +125,8 @@ const serializeGeminiKey = (config: GeminiKeyConfig) => {
   if (config.prefix?.trim()) payload.prefix = config.prefix.trim();
   if (config.baseUrl) payload['base-url'] = config.baseUrl;
   if (config.proxyUrl) payload['proxy-url'] = config.proxyUrl;
+  if (config.proxyProfile?.trim()) payload['proxy-profile'] = config.proxyProfile.trim();
+  if (config.planType?.trim()) payload['plan-type'] = config.planType.trim();
   const headers = serializeHeaders(config.headers);
   if (headers) payload.headers = headers;
   const models = serializeModelAliases(config.models);

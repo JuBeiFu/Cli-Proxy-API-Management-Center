@@ -157,6 +157,27 @@ function deleteIfMapEmpty(doc: YamlDocument, path: YamlPath): void {
   if (value.items.length === 0) doc.deleteIn(path);
 }
 
+function stringifyJsonValue(value: unknown): string {
+  if (value === undefined || value === null) return '';
+  if (Array.isArray(value) && value.length === 0) return '';
+  if (asRecord(value) && Object.keys(value as Record<string, unknown>).length === 0) return '';
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return '';
+  }
+}
+
+function parseJsonValue<T>(input: string, fallback: T): T {
+  const trimmed = input.trim();
+  if (!trimmed) return fallback;
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 function setBooleanInDoc(doc: YamlDocument, path: YamlPath, value: boolean): void {
   if (value) {
     doc.setIn(path, true);
@@ -502,6 +523,10 @@ export function useVisualConfig() {
         usageStatisticsEnabled: Boolean(parsed['usage-statistics-enabled']),
 
         proxyUrl: typeof parsed['proxy-url'] === 'string' ? parsed['proxy-url'] : '',
+        proxyProfilesText: stringifyJsonValue(parsed['proxy-profiles']),
+        proxyRoutingRulesText: stringifyJsonValue(
+          asRecord(parsed['proxy-routing'])?.rules ?? parsed['proxy-routing']
+        ),
         forceModelPrefix: Boolean(parsed['force-model-prefix']),
         requestRetry: String(parsed['request-retry'] ?? ''),
         maxRetryInterval: String(parsed['max-retry-interval'] ?? ''),
@@ -634,6 +659,20 @@ export function useVisualConfig() {
         setBooleanInDoc(doc, ['usage-statistics-enabled'], values.usageStatisticsEnabled);
 
         setStringInDoc(doc, ['proxy-url'], values.proxyUrl);
+        const proxyProfiles = parseJsonValue<unknown[]>(values.proxyProfilesText, []);
+        if (Array.isArray(proxyProfiles) && proxyProfiles.length > 0) {
+          doc.setIn(['proxy-profiles'], proxyProfiles);
+        } else if (docHas(doc, ['proxy-profiles'])) {
+          doc.deleteIn(['proxy-profiles']);
+        }
+        const proxyRoutingRules = parseJsonValue<unknown[]>(values.proxyRoutingRulesText, []);
+        if (Array.isArray(proxyRoutingRules) && proxyRoutingRules.length > 0) {
+          ensureMapInDoc(doc, ['proxy-routing']);
+          doc.setIn(['proxy-routing', 'rules'], proxyRoutingRules);
+          deleteIfMapEmpty(doc, ['proxy-routing']);
+        } else if (docHas(doc, ['proxy-routing'])) {
+          doc.deleteIn(['proxy-routing']);
+        }
         setBooleanInDoc(doc, ['force-model-prefix'], values.forceModelPrefix);
         setIntFromStringInDoc(doc, ['request-retry'], values.requestRetry);
         setIntFromStringInDoc(doc, ['max-retry-interval'], values.maxRetryInterval);

@@ -13,6 +13,8 @@ export interface ModelAlias {
 export interface ApiKeyEntry {
   apiKey: string;
   proxyUrl?: string;
+  proxyProfile?: string;
+  planType?: string;
   headers?: Record<string, string>;
 }
 
@@ -28,6 +30,8 @@ export interface GeminiKeyConfig {
   prefix?: string;
   baseUrl?: string;
   proxyUrl?: string;
+  proxyProfile?: string;
+  planType?: string;
   models?: ModelAlias[];
   headers?: Record<string, string>;
   excludedModels?: string[];
@@ -40,6 +44,8 @@ export interface ProviderKeyConfig {
   baseUrl?: string;
   websockets?: boolean;
   proxyUrl?: string;
+  proxyProfile?: string;
+  planType?: string;
   headers?: Record<string, string>;
   models?: ModelAlias[];
   excludedModels?: string[];

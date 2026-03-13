@@ -109,6 +109,11 @@ export function AuthFileCard(props: AuthFileCardProps) {
   const rawStatusMessage = getAuthFileStatusMessage(file);
   const hasStatusWarning =
     Boolean(rawStatusMessage) && !HEALTHY_STATUS_MESSAGES.has(rawStatusMessage.toLowerCase());
+  const planTypeText = typeof file.plan_type === 'string' ? file.plan_type.trim() : '';
+  const effectiveProxyProfileText =
+    typeof file.effective_proxy_profile === 'string' ? file.effective_proxy_profile.trim() : '';
+  const proxySourceText = typeof file.proxy_source === 'string' ? file.proxy_source.trim() : '';
+  const proxyRuleText = typeof file.proxy_rule === 'string' ? file.proxy_rule.trim() : '';
 
   return (
     <div
@@ -152,6 +157,27 @@ export function AuthFileCard(props: AuthFileCardProps) {
               {t('auth_files.file_modified')}: {formatModified(file)}
             </span>
           </div>
+
+          {Boolean(
+            planTypeText || effectiveProxyProfileText || proxySourceText || proxyRuleText
+          ) && (
+            <div className={styles.cardMeta}>
+              {planTypeText ? (
+                <span>{t('auth_files.plan_type_label', { defaultValue: 'Plan' })}: {planTypeText}</span>
+              ) : null}
+              {effectiveProxyProfileText ? (
+                <span>
+                  {t('auth_files.proxy_profile_label', { defaultValue: 'Proxy Profile' })}: {effectiveProxyProfileText}
+                </span>
+              ) : null}
+              {proxySourceText ? (
+                <span>{t('auth_files.proxy_source_label', { defaultValue: 'Source' })}: {proxySourceText}</span>
+              ) : null}
+              {proxyRuleText ? (
+                <span>{t('auth_files.proxy_rule_label', { defaultValue: 'Rule' })}: {proxyRuleText}</span>
+              ) : null}
+            </div>
+          )}
 
           {rawStatusMessage && hasStatusWarning && (
             <div className={styles.healthStatusMessage} title={rawStatusMessage}>

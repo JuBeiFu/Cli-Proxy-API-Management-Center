@@ -68,6 +68,8 @@ export type VisualConfigValues = {
   logsMaxTotalSizeMb: string;
   usageStatisticsEnabled: boolean;
   proxyUrl: string;
+  proxyProfilesText: string;
+  proxyRoutingRulesText: string;
   forceModelPrefix: boolean;
   requestRetry: string;
   maxRetryInterval: string;
@@ -104,6 +106,8 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   logsMaxTotalSizeMb: '',
   usageStatisticsEnabled: false,
   proxyUrl: '',
+  proxyProfilesText: '',
+  proxyRoutingRulesText: '',
   forceModelPrefix: false,
   requestRetry: '',
   maxRetryInterval: '',

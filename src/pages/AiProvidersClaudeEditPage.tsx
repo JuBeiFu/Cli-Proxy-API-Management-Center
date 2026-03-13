@@ -345,6 +345,20 @@ export function AiProvidersClaudeEditPage() {
               onChange={(e) => setForm((prev) => ({ ...prev, proxyUrl: e.target.value }))}
               disabled={saving || disableControls || isTesting}
             />
+            <Input
+              label={t('ai_providers.proxy_profile_label', { defaultValue: 'Proxy Profile' })}
+              value={form.proxyProfile ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, proxyProfile: e.target.value }))}
+              placeholder={t('ai_providers.proxy_profile_placeholder', { defaultValue: 'e.g. free-warp' })}
+              disabled={saving || disableControls || isTesting}
+            />
+            <Input
+              label={t('ai_providers.plan_type_label', { defaultValue: 'Plan Type' })}
+              value={form.planType ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, planType: e.target.value }))}
+              placeholder={t('ai_providers.plan_type_placeholder', { defaultValue: 'free / plus / pro / team' })}
+              disabled={saving || disableControls || isTesting}
+            />
             <HeaderInputList
               entries={form.headers}
               onChange={(entries) => setForm((prev) => ({ ...prev, headers: entries }))}

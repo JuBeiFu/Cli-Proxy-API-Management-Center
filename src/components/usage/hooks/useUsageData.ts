@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { USAGE_STATS_STALE_TIME_MS, useNotificationStore, useUsageStatsStore } from '@/stores';
-import { usageApi } from '@/services/api/usage';
+import { usageApi, type ProxyStatsPayload } from '@/services/api/usage';
 import { downloadBlob } from '@/utils/download';
 import { loadModelPrices, saveModelPrices, type ModelPrice } from '@/utils/usage';
 
@@ -16,6 +16,7 @@ export interface UsagePayload {
 
 export interface UseUsageDataReturn {
   usage: UsagePayload | null;
+  proxyStats: ProxyStatsPayload | null;
   loading: boolean;
   error: string;
   lastRefreshedAt: Date | null;
@@ -30,6 +31,8 @@ export interface UseUsageDataReturn {
   importing: boolean;
 }
 
+const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : '');
+
 export function useUsageData(): UseUsageDataReturn {
   const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
@@ -39,19 +42,37 @@ export function useUsageData(): UseUsageDataReturn {
   const lastRefreshedAtTs = useUsageStatsStore((state) => state.lastRefreshedAt);
   const loadUsageStats = useUsageStatsStore((state) => state.loadUsageStats);
 
+  const [proxyStats, setProxyStats] = useState<ProxyStatsPayload | null>(null);
+  const [proxyStatsError, setProxyStatsError] = useState('');
   const [modelPrices, setModelPrices] = useState<Record<string, ModelPrice>>({});
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
+  const loadProxyStats = useCallback(async () => {
+    try {
+      const data = await usageApi.getProxyStats();
+      setProxyStats(data);
+      setProxyStatsError('');
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      setProxyStatsError(message);
+      throw error;
+    }
+  }, []);
+
   const loadUsage = useCallback(async () => {
-    await loadUsageStats({ force: true, staleTimeMs: USAGE_STATS_STALE_TIME_MS });
-  }, [loadUsageStats]);
+    await Promise.all([
+      loadUsageStats({ force: true, staleTimeMs: USAGE_STATS_STALE_TIME_MS }),
+      loadProxyStats()
+    ]);
+  }, [loadProxyStats, loadUsageStats]);
 
   useEffect(() => {
     void loadUsageStats({ staleTimeMs: USAGE_STATS_STALE_TIME_MS }).catch(() => {});
+    void loadProxyStats().catch(() => {});
     setModelPrices(loadModelPrices());
-  }, [loadUsageStats]);
+  }, [loadProxyStats, loadUsageStats]);
 
   const handleExport = async () => {
     setExporting(true);
@@ -68,8 +89,8 @@ export function useUsageData(): UseUsageDataReturn {
         blob: new Blob([JSON.stringify(data ?? {}, null, 2)], { type: 'application/json' })
       });
       showNotification(t('usage_stats.export_success'), 'success');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : '';
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
       showNotification(
         `${t('notification.download_failed')}${message ? `: ${message}` : ''}`,
         'error'
@@ -109,17 +130,21 @@ export function useUsageData(): UseUsageDataReturn {
         }),
         'success'
       );
+
       try {
-        await loadUsageStats({ force: true, staleTimeMs: USAGE_STATS_STALE_TIME_MS });
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : '';
+        await Promise.all([
+          loadUsageStats({ force: true, staleTimeMs: USAGE_STATS_STALE_TIME_MS }),
+          loadProxyStats()
+        ]);
+      } catch (error: unknown) {
+        const message = getErrorMessage(error);
         showNotification(
           `${t('notification.refresh_failed')}${message ? `: ${message}` : ''}`,
           'error'
         );
       }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : '';
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
       showNotification(
         `${t('notification.upload_failed')}${message ? `: ${message}` : ''}`,
         'error'
@@ -135,11 +160,12 @@ export function useUsageData(): UseUsageDataReturn {
   }, []);
 
   const usage = usageSnapshot as UsagePayload | null;
-  const error = storeError || '';
+  const error = storeError || proxyStatsError || '';
   const lastRefreshedAt = lastRefreshedAtTs ? new Date(lastRefreshedAtTs) : null;
 
   return {
     usage,
+    proxyStats,
     loading,
     error,
     lastRefreshedAt,

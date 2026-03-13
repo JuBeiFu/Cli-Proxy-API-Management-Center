@@ -11,9 +11,27 @@ export interface QuotaExceededConfig {
   switchPreviewModel?: boolean;
 }
 
+export interface ProxyProfileConfig {
+  name: string;
+  proxyUrl: string;
+  description?: string;
+}
+
+export interface ProxyRoutingRuleConfig {
+  name?: string;
+  providers?: string[];
+  planTypes?: string[];
+  authKinds?: string[];
+  proxyProfile?: string;
+  proxyUrl?: string;
+  disabled?: boolean;
+}
+
 export interface Config {
   debug?: boolean;
   proxyUrl?: string;
+  proxyProfiles?: ProxyProfileConfig[];
+  proxyRoutingRules?: ProxyRoutingRuleConfig[];
   requestRetry?: number;
   quotaExceeded?: QuotaExceededConfig;
   usageStatisticsEnabled?: boolean;
@@ -37,6 +55,8 @@ export interface Config {
 export type RawConfigSection =
   | 'debug'
   | 'proxy-url'
+  | 'proxy-profiles'
+  | 'proxy-routing'
   | 'request-retry'
   | 'quota-exceeded'
   | 'usage-statistics-enabled'

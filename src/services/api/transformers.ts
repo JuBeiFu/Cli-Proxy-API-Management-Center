@@ -9,7 +9,7 @@ import type {
   AmpcodeModelMapping,
   AmpcodeUpstreamApiKeyMapping
 } from '@/types';
-import type { Config } from '@/types/config';
+import type { Config, ProxyProfileConfig, ProxyRoutingRuleConfig } from '@/types/config';
 import { buildHeaderObject } from '@/utils/headers';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -103,11 +103,15 @@ const normalizeApiKeyEntry = (entry: unknown): ApiKeyEntry | null => {
   if (!trimmed) return null;
 
   const proxyUrl = record ? record['proxy-url'] ?? record.proxyUrl : undefined;
+  const proxyProfile = record ? record['proxy-profile'] ?? record.proxyProfile : undefined;
+  const planType = record ? record['plan-type'] ?? record.planType : undefined;
   const headers = record ? normalizeHeaders(record.headers) : undefined;
 
   return {
     apiKey: trimmed,
     proxyUrl: proxyUrl ? String(proxyUrl) : undefined,
+    proxyProfile: proxyProfile ? String(proxyProfile) : undefined,
+    planType: planType ? String(planType) : undefined,
     headers
   };
 };
@@ -131,10 +135,14 @@ const normalizeProviderKeyConfig = (item: unknown): ProviderKeyConfig | null => 
   if (prefix) config.prefix = prefix;
   const baseUrl = record ? record['base-url'] ?? record.baseUrl : undefined;
   const proxyUrl = record ? record['proxy-url'] ?? record.proxyUrl : undefined;
+  const proxyProfile = record ? record['proxy-profile'] ?? record.proxyProfile : undefined;
+  const planType = record ? record['plan-type'] ?? record.planType : undefined;
   if (baseUrl) config.baseUrl = String(baseUrl);
   const websockets = normalizeBoolean(record?.websockets ?? record?.['websockets']);
   if (websockets !== undefined) config.websockets = websockets;
   if (proxyUrl) config.proxyUrl = String(proxyUrl);
+  if (proxyProfile) config.proxyProfile = String(proxyProfile);
+  if (planType) config.planType = String(planType);
   const headers = normalizeHeaders(record?.headers);
   if (headers) config.headers = headers;
   const models = normalizeModelAliases(record?.models);
@@ -339,6 +347,47 @@ const normalizeAmpcodeConfig = (payload: unknown): AmpcodeConfig | undefined => 
   return config;
 };
 
+const normalizeProxyProfiles = (input: unknown): ProxyProfileConfig[] => {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => {
+      if (!isRecord(item)) return null;
+      const name = String(item.name ?? '').trim();
+      const proxyUrl = String(item['proxy-url'] ?? item.proxyUrl ?? '').trim();
+      const description = String(item.description ?? '').trim();
+      if (!name || !proxyUrl) return null;
+      return { name, proxyUrl, description: description || undefined } satisfies ProxyProfileConfig;
+    })
+    .filter(Boolean) as ProxyProfileConfig[];
+};
+
+const normalizeProxyRoutingRules = (input: unknown): ProxyRoutingRuleConfig[] => {
+  const source = isRecord(input) ? input.rules : input;
+  if (!Array.isArray(source)) return [];
+
+  return source.flatMap((item): ProxyRoutingRuleConfig[] => {
+    if (!isRecord(item)) return [];
+
+    const normalizeList = (value: unknown): string[] | undefined => {
+      if (!Array.isArray(value)) return undefined;
+      const list = value.map((entry) => String(entry ?? '').trim()).filter(Boolean);
+      return list.length ? list : undefined;
+    };
+
+    const normalized: ProxyRoutingRuleConfig = {
+      name: String(item.name ?? '').trim() || undefined,
+      providers: normalizeList(item.providers),
+      planTypes: normalizeList(item['plan-types'] ?? item.planTypes),
+      authKinds: normalizeList(item['auth-kinds'] ?? item.authKinds),
+      proxyProfile: String(item['proxy-profile'] ?? item.proxyProfile ?? '').trim() || undefined,
+      proxyUrl: String(item['proxy-url'] ?? item.proxyUrl ?? '').trim() || undefined,
+      disabled: normalizeBoolean(item.disabled),
+    };
+
+    return normalized.proxyProfile || normalized.proxyUrl ? [normalized] : [];
+  });
+};
+
 /**
  * 规范化 /config 返回值
  */
@@ -352,6 +401,14 @@ export const normalizeConfigResponse = (raw: unknown): Config => {
   const proxyUrl = raw['proxy-url'] ?? raw.proxyUrl;
   config.proxyUrl =
     typeof proxyUrl === 'string' ? proxyUrl : proxyUrl === undefined || proxyUrl === null ? undefined : String(proxyUrl);
+  const proxyProfiles = normalizeProxyProfiles(raw['proxy-profiles'] ?? raw.proxyProfiles);
+  if (proxyProfiles.length) {
+    config.proxyProfiles = proxyProfiles;
+  }
+  const proxyRoutingRules = normalizeProxyRoutingRules(raw['proxy-routing'] ?? raw.proxyRouting);
+  if (proxyRoutingRules.length) {
+    config.proxyRoutingRules = proxyRoutingRules;
+  }
   const requestRetry = raw['request-retry'] ?? raw.requestRetry;
   if (typeof requestRetry === 'number' && Number.isFinite(requestRetry)) {
     config.requestRetry = requestRetry;

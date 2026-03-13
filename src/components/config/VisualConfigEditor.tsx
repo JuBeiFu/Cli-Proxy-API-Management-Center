@@ -326,6 +326,32 @@ export function VisualConfigEditor({ values, validationErrors, disabled = false,
             </div>
           </SectionGrid>
 
+          <div className="form-group">
+            <label>Proxy Profiles (JSON Array)</label>
+            <textarea
+              className="input"
+              rows={8}
+              placeholder='[{"name":"free-warp","proxyUrl":"socks5://warp:1080"}]'
+              value={values.proxyProfilesText}
+              onChange={(e) => onChange({ proxyProfilesText: e.target.value })}
+              disabled={disabled}
+            />
+            <div className="hint">Define named proxy pools such as free WARP or paid egress.</div>
+          </div>
+
+          <div className="form-group">
+            <label>Proxy Routing Rules (JSON Array)</label>
+            <textarea
+              className="input"
+              rows={10}
+              placeholder='[{"name":"free-to-warp","providers":["codex"],"planTypes":["free"],"proxyProfile":"free-warp"}]'
+              value={values.proxyRoutingRulesText}
+              onChange={(e) => onChange({ proxyRoutingRulesText: e.target.value })}
+              disabled={disabled}
+            />
+            <div className="hint">Rules are evaluated in order. Supports providers, planTypes, authKinds, proxyProfile, and proxyUrl.</div>
+          </div>
+
           <ToggleRow
             title={t('config_management.visual.sections.network.force_model_prefix')}
             description={t('config_management.visual.sections.network.force_model_prefix_desc')}

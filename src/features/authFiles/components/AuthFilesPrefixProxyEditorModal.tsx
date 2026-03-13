@@ -87,6 +87,20 @@ export function AuthFilesPrefixProxyEditorModal(props: AuthFilesPrefixProxyEdito
                   onChange={(e) => onChange('proxyUrl', e.target.value)}
                 />
                 <Input
+                  label={t('auth_files.proxy_profile_label', { defaultValue: 'Proxy Profile' })}
+                  value={editor.proxyProfile}
+                  placeholder={t('auth_files.proxy_profile_placeholder', { defaultValue: 'e.g. free-warp' })}
+                  disabled={disableControls || editor.saving || !editor.json}
+                  onChange={(e) => onChange('proxyProfile', e.target.value)}
+                />
+                <Input
+                  label={t('auth_files.plan_type_label', { defaultValue: 'Plan Type' })}
+                  value={editor.planType}
+                  placeholder={t('auth_files.plan_type_placeholder', { defaultValue: 'free / plus / pro / team' })}
+                  disabled={disableControls || editor.saving || !editor.json}
+                  onChange={(e) => onChange('planType', e.target.value)}
+                />
+                <Input
                   label={t('auth_files.priority_label')}
                   value={editor.priority}
                   placeholder={t('auth_files.priority_placeholder')}

@@ -39,5 +39,8 @@ export type { CostTrendChartProps } from './CostTrendChart';
 export { ServiceHealthCard } from './ServiceHealthCard';
 export type { ServiceHealthCardProps } from './ServiceHealthCard';
 
+export { ProxyStatsCard } from './ProxyStatsCard';
+export type { ProxyStatsCardProps } from './ProxyStatsCard';
+
 export { RequestEventsDetailsCard } from './RequestEventsDetailsCard';
 export type { RequestEventsDetailsCardProps } from './RequestEventsDetailsCard';

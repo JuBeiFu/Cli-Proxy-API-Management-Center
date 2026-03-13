@@ -15,6 +15,8 @@ import {
 export type PrefixProxyEditorField =
   | 'prefix'
   | 'proxyUrl'
+  | 'proxyProfile'
+  | 'planType'
   | 'priority'
   | 'excludedModelsText'
   | 'disableCooling'
@@ -33,6 +35,8 @@ export type PrefixProxyEditorState = {
   json: Record<string, unknown> | null;
   prefix: string;
   proxyUrl: string;
+  proxyProfile: string;
+  planType: string;
   priority: string;
   excludedModelsText: string;
   disableCooling: string;
@@ -66,6 +70,14 @@ const buildPrefixProxyUpdatedText = (editor: PrefixProxyEditorState | null): str
   }
   if ('proxy_url' in next || editor.proxyUrl.trim()) {
     next.proxy_url = editor.proxyUrl;
+  }
+  if ('proxy_profile' in next || 'proxy-profile' in next || editor.proxyProfile.trim()) {
+    next.proxy_profile = editor.proxyProfile;
+    if ('proxy-profile' in next) delete next['proxy-profile'];
+  }
+  if ('plan_type' in next || 'plan-type' in next || editor.planType.trim()) {
+    next.plan_type = editor.planType;
+    if ('plan-type' in next) delete next['plan-type'];
   }
 
   const parsedPriority = parsePriorityValue(editor.priority);
@@ -142,6 +154,8 @@ export function useAuthFilesPrefixProxyEditor(
       json: null,
       prefix: '',
       proxyUrl: '',
+      proxyProfile: '',
+      planType: '',
       priority: '',
       excludedModelsText: '',
       disableCooling: '',
@@ -191,6 +205,18 @@ export function useAuthFilesPrefixProxyEditor(
       const originalText = JSON.stringify(json);
       const prefix = typeof json.prefix === 'string' ? json.prefix : '';
       const proxyUrl = typeof json.proxy_url === 'string' ? json.proxy_url : '';
+      const proxyProfile =
+        typeof json.proxy_profile === 'string'
+          ? json.proxy_profile
+          : typeof json['proxy-profile'] === 'string'
+            ? String(json['proxy-profile'])
+            : '';
+      const planType =
+        typeof json.plan_type === 'string'
+          ? json.plan_type
+          : typeof json['plan-type'] === 'string'
+            ? String(json['plan-type'])
+            : '';
       const priority = parsePriorityValue(json.priority);
       const excludedModels = normalizeExcludedModels(json.excluded_models);
       const disableCoolingValue = parseDisableCoolingValue(json.disable_cooling);
@@ -206,6 +232,8 @@ export function useAuthFilesPrefixProxyEditor(
           json,
           prefix,
           proxyUrl,
+          proxyProfile,
+          planType,
           priority: priority !== undefined ? String(priority) : '',
           excludedModelsText: excludedModels.join('\n'),
           disableCooling:
@@ -232,6 +260,8 @@ export function useAuthFilesPrefixProxyEditor(
       if (!prev) return prev;
       if (field === 'prefix') return { ...prev, prefix: String(value) };
       if (field === 'proxyUrl') return { ...prev, proxyUrl: String(value) };
+      if (field === 'proxyProfile') return { ...prev, proxyProfile: String(value) };
+      if (field === 'planType') return { ...prev, planType: String(value) };
       if (field === 'priority') return { ...prev, priority: String(value) };
       if (field === 'excludedModelsText') return { ...prev, excludedModelsText: String(value) };
       if (field === 'disableCooling') return { ...prev, disableCooling: String(value) };

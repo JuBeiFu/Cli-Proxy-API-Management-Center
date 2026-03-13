@@ -31,6 +31,8 @@ const buildEmptyForm = (): ProviderFormState => ({
   baseUrl: '',
   websockets: false,
   proxyUrl: '',
+  proxyProfile: '',
+  planType: '',
   headers: [],
   models: [],
   excludedModels: [],
@@ -71,6 +73,8 @@ const buildCodexSignature = (form: ProviderFormState) =>
     baseUrl: String(form.baseUrl ?? '').trim(),
     websockets: Boolean(form.websockets),
     proxyUrl: String(form.proxyUrl ?? '').trim(),
+    proxyProfile: String(form.proxyProfile ?? '').trim(),
+    planType: String(form.planType ?? '').trim(),
     headers: normalizeHeaderEntries(form.headers),
     models: normalizeModelEntries(form.modelEntries),
     excludedModels: parseExcludedModels(form.excludedText ?? ''),
@@ -360,6 +364,8 @@ export function AiProvidersCodexEditPage() {
         baseUrl,
         websockets: Boolean(form.websockets),
         proxyUrl: form.proxyUrl?.trim() || undefined,
+        proxyProfile: form.proxyProfile?.trim() || undefined,
+        planType: form.planType?.trim() || undefined,
         headers: buildHeaderObject(form.headers),
         models: entriesToModels(form.modelEntries),
         excludedModels: parseExcludedModels(form.excludedText),
@@ -499,6 +505,20 @@ export function AiProvidersCodexEditPage() {
               label={t('ai_providers.codex_add_modal_proxy_label')}
               value={form.proxyUrl ?? ''}
               onChange={(e) => setForm((prev) => ({ ...prev, proxyUrl: e.target.value }))}
+              disabled={disableControls || saving}
+            />
+            <Input
+              label={t('ai_providers.proxy_profile_label', { defaultValue: 'Proxy Profile' })}
+              value={form.proxyProfile ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, proxyProfile: e.target.value }))}
+              placeholder={t('ai_providers.proxy_profile_placeholder', { defaultValue: 'e.g. free-warp' })}
+              disabled={disableControls || saving}
+            />
+            <Input
+              label={t('ai_providers.plan_type_label', { defaultValue: 'Plan Type' })}
+              value={form.planType ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, planType: e.target.value }))}
+              placeholder={t('ai_providers.plan_type_placeholder', { defaultValue: 'free / plus / pro / team' })}
               disabled={disableControls || saving}
             />
             <HeaderInputList

@@ -29,6 +29,7 @@ import {
   TokenBreakdownChart,
   CostTrendChart,
   ServiceHealthCard,
+  ProxyStatsCard,
   useUsageData,
   useSparklines,
   useChartData
@@ -125,6 +126,7 @@ export function UsagePage() {
   // Data hook
   const {
     usage,
+    proxyStats,
     loading,
     error,
     lastRefreshedAt,
@@ -315,6 +317,8 @@ export function UsagePage() {
 
       {/* Service Health */}
       <ServiceHealthCard usage={usage} loading={loading} />
+
+      <ProxyStatsCard proxyStats={proxyStats} loading={loading} />
 
       {/* Charts Grid */}
       <div className={styles.chartsGrid}>
