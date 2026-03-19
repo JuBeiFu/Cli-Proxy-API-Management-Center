@@ -1,5 +1,6 @@
 export type AuthFilesUiState = {
   filter?: string;
+  codexPlan?: string;
   problemOnly?: boolean;
   search?: string;
   page?: number;

@@ -1108,19 +1108,18 @@
 }
 
 .healthTooltip {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
+  position: fixed;
   background: var(--bg-primary, #fff);
   border: 1px solid var(--border-secondary, #e5e7eb);
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 11px;
   line-height: 1.5;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: min(320px, calc(100vw - 24px));
+  min-width: 180px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  z-index: $z-dropdown;
+  z-index: $z-modal;
   pointer-events: none;
   color: var(--text-primary);
 
@@ -1166,9 +1165,6 @@
 }
 
 .healthTooltipLeft {
-  left: 0;
-  transform: translateX(0);
-
   &::after,
   &::before {
     left: 8px;
@@ -1177,10 +1173,6 @@
 }
 
 .healthTooltipRight {
-  left: auto;
-  right: 0;
-  transform: translateX(0);
-
   &::after,
   &::before {
     left: auto;
@@ -1212,6 +1204,27 @@
 .healthTooltipRate {
   color: var(--text-secondary);
   margin-left: 2px;
+}
+
+.healthTooltipReasons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.healthTooltipReason {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.healthTooltipReasonCount {
+  color: var(--danger-color, #ef4444);
+  font-weight: 600;
+  flex: 0 0 auto;
 }
 
 .healthLegend {

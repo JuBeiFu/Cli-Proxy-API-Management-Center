@@ -56,7 +56,7 @@ export function ProxyStatsCard({ proxyStats, loading }: ProxyStatsCardProps) {
 
   const rows = useMemo(
     () => (Array.isArray(proxyStats?.proxies) ? [...proxyStats.proxies] : []),
-    [proxyStats?.proxies]
+    [proxyStats]
   );
 
   const totalAttempts = Number(proxyStats?.total_attempts ?? 0);

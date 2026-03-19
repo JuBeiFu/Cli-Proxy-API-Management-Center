@@ -22,6 +22,8 @@ type DeleteAllOptions = {
 
 export type UseAuthFilesDataResult = {
   files: AuthFileItem[];
+  total: number;
+  offset: number;
   selectedFiles: Set<string>;
   selectionCount: number;
   loading: boolean;
@@ -47,14 +49,21 @@ export type UseAuthFilesDataResult = {
 
 export type UseAuthFilesDataOptions = {
   refreshKeyStats: () => Promise<void>;
+  query: string;
+  provider: string;
+  codexPlan: string;
+  pageSize: number;
+  page: number;
 };
 
 export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFilesDataResult {
-  const { refreshKeyStats } = options;
+  const { refreshKeyStats, query, provider, codexPlan, pageSize, page } = options;
   const { t } = useTranslation();
   const { showNotification, showConfirmation } = useNotificationStore();
 
   const [files, setFiles] = useState<AuthFileItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -109,15 +118,30 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
     setLoading(true);
     setError('');
     try {
-      const data = await authFilesApi.list();
+      const normalizedPageSize = Number.isFinite(pageSize) && pageSize > 0 ? pageSize : 20;
+      const normalizedPage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+      const nextOffset = (normalizedPage - 1) * normalizedPageSize;
+      const q = query.trim();
+
+      const normalizedProvider = provider !== 'all' ? provider : undefined;
+      const normalizedPlan = normalizedProvider === 'codex' && codexPlan !== 'all' ? codexPlan : undefined;
+      const data = await authFilesApi.list({
+        limit: normalizedPageSize,
+        offset: nextOffset,
+        q: q ? q : undefined,
+        provider: normalizedProvider,
+        plan: normalizedPlan
+      });
       setFiles(data?.files || []);
+      setTotal(typeof data?.total === 'number' ? data.total : (data?.files?.length ?? 0));
+      setOffset(typeof data?.offset === 'number' ? data.offset : nextOffset);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : t('notification.refresh_failed');
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [codexPlan, page, pageSize, provider, query, t]);
 
   const handleUploadClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -535,6 +559,8 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
 
   return {
     files,
+    total,
+    offset,
     selectedFiles,
     selectionCount,
     loading,

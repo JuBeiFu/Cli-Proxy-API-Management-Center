@@ -41,8 +41,22 @@ export function QuotaPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await authFilesApi.list();
-      setFiles(data?.files || []);
+      // Only need the complete list of auth file names for quota probing. The server
+      // endpoint is paginated, so fetch in batches.
+      const pageSize = 200;
+      let offset = 0;
+      let all: AuthFileItem[] = [];
+      for (;;) {
+        const data = await authFilesApi.list({ limit: pageSize, offset });
+        const batch = data?.files || [];
+        all = all.concat(batch);
+        const total = typeof data?.total === 'number' ? data.total : all.length;
+        offset += batch.length;
+        if (batch.length === 0 || offset >= total) {
+          break;
+        }
+      }
+      setFiles(all);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : t('notification.refresh_failed');
       setError(errorMessage);

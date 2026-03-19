@@ -54,7 +54,11 @@ export interface ProxyStatsPayload {
 }
 
 export const usageApi = {
-  getUsage: () => apiClient.get<Record<string, unknown>>('/usage', { timeout: USAGE_TIMEOUT_MS }),
+  getUsage: () =>
+    apiClient.get<Record<string, unknown>>('/usage', {
+      timeout: USAGE_TIMEOUT_MS,
+      params: { range: '24h', detail_limit: 2000 }
+    }),
 
   exportUsage: () => apiClient.get<UsageExportPayload>('/usage/export', { timeout: USAGE_TIMEOUT_MS }),
 
@@ -72,7 +76,10 @@ export const usageApi = {
   async getKeyStats(usageData?: unknown): Promise<KeyStats> {
     let payload = usageData;
     if (!payload) {
-      const response = await apiClient.get<Record<string, unknown>>('/usage', { timeout: USAGE_TIMEOUT_MS });
+      const response = await apiClient.get<Record<string, unknown>>('/usage', {
+        timeout: USAGE_TIMEOUT_MS,
+        params: { range: '24h', detail_limit: 2000 }
+      });
       payload = response?.usage ?? response;
     }
     return computeKeyStats(payload);

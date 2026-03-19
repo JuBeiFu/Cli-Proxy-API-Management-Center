@@ -12,7 +12,8 @@ import { buildSourceInfoMap, resolveSourceDisplay } from '@/utils/sourceResolver
 import {
   collectUsageDetails,
   extractTotalTokens,
-  normalizeAuthIndex
+  normalizeAuthIndex,
+  summarizeUsageError
 } from '@/utils/usage';
 import { downloadBlob } from '@/utils/download';
 import styles from '@/pages/UsagePage.module.scss';
@@ -31,6 +32,8 @@ type RequestEventRow = {
   sourceType: string;
   authIndex: string;
   failed: boolean;
+  statusCode: number;
+  errorMessage: string;
   inputTokens: number;
   outputTokens: number;
   reasoningTokens: number;
@@ -74,29 +77,39 @@ export function RequestEventsDetailsCard({
 
   const [modelFilter, setModelFilter] = useState(ALL_FILTER);
   const [sourceFilter, setSourceFilter] = useState(ALL_FILTER);
+  const [resultFilter, setResultFilter] = useState(ALL_FILTER);
   const [authIndexFilter, setAuthIndexFilter] = useState(ALL_FILTER);
   const [authFileMap, setAuthFileMap] = useState<Map<string, CredentialInfo>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
-    authFilesApi
-      .list()
-      .then((res) => {
-        if (cancelled) return;
-        const files = Array.isArray(res) ? res : (res as { files?: AuthFileItem[] })?.files;
-        if (!Array.isArray(files)) return;
-        const map = new Map<string, CredentialInfo>();
-        files.forEach((file) => {
-          const key = normalizeAuthIndex(file['auth_index'] ?? file.authIndex);
-          if (!key) return;
-          map.set(key, {
-            name: file.name || key,
-            type: (file.type || file.provider || '').toString()
-          });
+    const loadAllAuthFiles = async () => {
+      const pageSize = 200;
+      let offset = 0;
+      let all: AuthFileItem[] = [];
+      for (;;) {
+        const data = await authFilesApi.list({ limit: pageSize, offset });
+        const batch = (data?.files ?? []) as AuthFileItem[];
+        all = all.concat(batch);
+        const total = typeof data?.total === 'number' ? data.total : all.length;
+        offset += batch.length;
+        if (batch.length === 0 || offset >= total) break;
+      }
+
+      if (cancelled) return;
+      const map = new Map<string, CredentialInfo>();
+      all.forEach((file) => {
+        const key = normalizeAuthIndex(file['auth_index'] ?? file.authIndex);
+        if (!key) return;
+        map.set(key, {
+          name: file.name || key,
+          type: (file.type || file.provider || '').toString()
         });
-        setAuthFileMap(map);
-      })
-      .catch(() => {});
+      });
+      setAuthFileMap(map);
+    };
+
+    void loadAllAuthFiles().catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -147,6 +160,7 @@ export function RequestEventsDetailsCard({
           extractTotalTokens(detail)
         );
 
+        const statusCode = typeof detail.status_code === 'number' ? detail.status_code : 0;
         return {
           id: `${timestamp}-${model}-${sourceRaw || source}-${authIndex}-${index}`,
           timestamp,
@@ -158,6 +172,8 @@ export function RequestEventsDetailsCard({
           sourceType,
           authIndex,
           failed: detail.failed === true,
+          statusCode,
+          errorMessage: summarizeUsageError(detail.error_message, statusCode),
           inputTokens,
           outputTokens,
           reasoningTokens,
@@ -190,6 +206,15 @@ export function RequestEventsDetailsCard({
     [rows, t]
   );
 
+  const resultOptions = useMemo(
+    () => [
+      { value: ALL_FILTER, label: t('usage_stats.filter_all') },
+      { value: 'success', label: t('stats.success') },
+      { value: 'failure', label: t('stats.failure') }
+    ],
+    [t]
+  );
+
   const authIndexOptions = useMemo(
     () => [
       { value: ALL_FILTER, label: t('usage_stats.filter_all') },
@@ -216,6 +241,8 @@ export function RequestEventsDetailsCard({
 
   const effectiveModelFilter = modelOptionSet.has(modelFilter) ? modelFilter : ALL_FILTER;
   const effectiveSourceFilter = sourceOptionSet.has(sourceFilter) ? sourceFilter : ALL_FILTER;
+  const effectiveResultFilter =
+    resultFilter === 'success' || resultFilter === 'failure' ? resultFilter : ALL_FILTER;
   const effectiveAuthIndexFilter = authIndexOptionSet.has(authIndexFilter)
     ? authIndexFilter
     : ALL_FILTER;
@@ -225,11 +252,14 @@ export function RequestEventsDetailsCard({
       rows.filter((row) => {
         const modelMatched = effectiveModelFilter === ALL_FILTER || row.model === effectiveModelFilter;
         const sourceMatched = effectiveSourceFilter === ALL_FILTER || row.source === effectiveSourceFilter;
+        const resultMatched =
+          effectiveResultFilter === ALL_FILTER ||
+          (effectiveResultFilter === 'failure' ? row.failed : !row.failed);
         const authIndexMatched =
           effectiveAuthIndexFilter === ALL_FILTER || row.authIndex === effectiveAuthIndexFilter;
-        return modelMatched && sourceMatched && authIndexMatched;
+        return modelMatched && sourceMatched && resultMatched && authIndexMatched;
       }),
-    [effectiveAuthIndexFilter, effectiveModelFilter, effectiveSourceFilter, rows]
+    [effectiveAuthIndexFilter, effectiveModelFilter, effectiveResultFilter, effectiveSourceFilter, rows]
   );
 
   const renderedRows = useMemo(
@@ -240,11 +270,13 @@ export function RequestEventsDetailsCard({
   const hasActiveFilters =
     effectiveModelFilter !== ALL_FILTER ||
     effectiveSourceFilter !== ALL_FILTER ||
+    effectiveResultFilter !== ALL_FILTER ||
     effectiveAuthIndexFilter !== ALL_FILTER;
 
   const handleClearFilters = () => {
     setModelFilter(ALL_FILTER);
     setSourceFilter(ALL_FILTER);
+    setResultFilter(ALL_FILTER);
     setAuthIndexFilter(ALL_FILTER);
   };
 
@@ -258,6 +290,8 @@ export function RequestEventsDetailsCard({
       'source_raw',
       'auth_index',
       'result',
+      'status_code',
+      'error_message',
       'input_tokens',
       'output_tokens',
       'reasoning_tokens',
@@ -273,6 +307,8 @@ export function RequestEventsDetailsCard({
         row.sourceRaw,
         row.authIndex,
         row.failed ? 'failed' : 'success',
+        row.statusCode,
+        row.errorMessage,
         row.inputTokens,
         row.outputTokens,
         row.reasoningTokens,
@@ -301,6 +337,8 @@ export function RequestEventsDetailsCard({
       source_raw: row.sourceRaw,
       auth_index: row.authIndex,
       failed: row.failed,
+      status_code: row.statusCode,
+      error_message: row.errorMessage,
       tokens: {
         input_tokens: row.inputTokens,
         output_tokens: row.outputTokens,
@@ -379,6 +417,19 @@ export function RequestEventsDetailsCard({
         </div>
         <div className={styles.requestEventsFilterItem}>
           <span className={styles.requestEventsFilterLabel}>
+            {t('usage_stats.request_events_result')}
+          </span>
+          <Select
+            value={effectiveResultFilter}
+            options={resultOptions}
+            onChange={setResultFilter}
+            className={styles.requestEventsSelect}
+            ariaLabel={t('usage_stats.request_events_result')}
+            fullWidth={false}
+          />
+        </div>
+        <div className={styles.requestEventsFilterItem}>
+          <span className={styles.requestEventsFilterLabel}>
             {t('usage_stats.request_events_filter_auth_index')}
           </span>
           <Select
@@ -427,6 +478,8 @@ export function RequestEventsDetailsCard({
                   <th>{t('usage_stats.request_events_source')}</th>
                   <th>{t('usage_stats.request_events_auth_index')}</th>
                   <th>{t('usage_stats.request_events_result')}</th>
+                  <th>Status</th>
+                  <th>Error</th>
                   <th>{t('usage_stats.input_tokens')}</th>
                   <th>{t('usage_stats.output_tokens')}</th>
                   <th>{t('usage_stats.reasoning_tokens')}</th>
@@ -456,6 +509,10 @@ export function RequestEventsDetailsCard({
                       >
                         {row.failed ? t('stats.failure') : t('stats.success')}
                       </span>
+                    </td>
+                    <td>{row.statusCode > 0 ? row.statusCode : '-'}</td>
+                    <td title={row.errorMessage || '-'} className={styles.requestEventsSourceCell}>
+                      <span>{row.errorMessage || '-'}</span>
                     </td>
                     <td>{row.inputTokens.toLocaleString()}</td>
                     <td>{row.outputTokens.toLocaleString()}</td>

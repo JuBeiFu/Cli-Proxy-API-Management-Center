@@ -18,6 +18,7 @@ import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer'
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { copyToClipboard } from '@/utils/clipboard';
@@ -66,6 +67,7 @@ export function AuthFilesPage() {
   const navigate = useNavigate();
 
   const [filter, setFilter] = useState<'all' | string>('all');
+  const [codexPlan, setCodexPlan] = useState<'all' | string>('all');
   const [problemOnly, setProblemOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -83,6 +85,7 @@ export function AuthFilesPage() {
   const { keyStats, usageDetails, loadKeyStats, refreshKeyStats } = useAuthFilesStats();
   const {
     files,
+    total: totalFromServer,
     selectedFiles,
     selectionCount,
     loading,
@@ -104,7 +107,7 @@ export function AuthFilesPage() {
     deselectAll,
     batchSetStatus,
     batchDelete,
-  } = useAuthFilesData({ refreshKeyStats });
+  } = useAuthFilesData({ refreshKeyStats, query: search, provider: filter, codexPlan, pageSize, page });
 
   const statusBarCache = useAuthFilesStatusBarCache(files, usageDetails);
 
@@ -165,6 +168,9 @@ export function AuthFilesPage() {
     if (typeof persisted.filter === 'string' && persisted.filter.trim()) {
       setFilter(persisted.filter);
     }
+    if (typeof persisted.codexPlan === 'string' && persisted.codexPlan.trim()) {
+      setCodexPlan(persisted.codexPlan);
+    }
     if (typeof persisted.problemOnly === 'boolean') {
       setProblemOnly(persisted.problemOnly);
     }
@@ -180,8 +186,8 @@ export function AuthFilesPage() {
   }, []);
 
   useEffect(() => {
-    writeAuthFilesUiState({ filter, problemOnly, search, page, pageSize });
-  }, [filter, problemOnly, search, page, pageSize]);
+    writeAuthFilesUiState({ filter, codexPlan, problemOnly, search, page, pageSize });
+  }, [codexPlan, filter, problemOnly, search, page, pageSize]);
 
   useEffect(() => {
     setPageSizeInput(String(pageSize));
@@ -244,6 +250,12 @@ export function AuthFilesPage() {
     isCurrentLayer ? 240_000 : null
   );
 
+  const codexPlanOptions = useMemo(() => [
+    { value: 'all', label: t('auth_files.filter_all') },
+    { value: 'free', label: t('codex_quota.plan_free', { defaultValue: 'Free' }) },
+    { value: 'team', label: t('codex_quota.plan_team', { defaultValue: 'Team' }) },
+  ], [t]);
+
   const existingTypes = useMemo(() => {
     const types = new Set<string>(['all']);
     files.forEach((file) => {
@@ -269,22 +281,26 @@ export function AuthFilesPage() {
   }, [filesMatchingProblemFilter]);
 
   const filtered = useMemo(() => {
+    // Server already filters by `search` (q). Keep client-side filter for
+    // type + "problem only" toggles.
     return filesMatchingProblemFilter.filter((item) => {
       const matchType = filter === 'all' || item.type === filter;
-      const term = search.trim().toLowerCase();
-      const matchSearch =
-        !term ||
-        item.name.toLowerCase().includes(term) ||
-        (item.type || '').toString().toLowerCase().includes(term) ||
-        (item.provider || '').toString().toLowerCase().includes(term);
-      return matchType && matchSearch;
+      const matchPlan =
+        filter !== 'codex' || codexPlan === 'all' || String(item.plan_type ?? '').trim().toLowerCase() === codexPlan;
+      return matchType && matchPlan;
     });
-  }, [filesMatchingProblemFilter, filter, search]);
+  }, [codexPlan, filesMatchingProblemFilter, filter]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const totalCount = useMemo(() => {
+    // When server returns `total` use it for pagination; otherwise fall back.
+    return typeof totalFromServer === 'number' && totalFromServer > 0
+      ? totalFromServer
+      : filtered.length;
+  }, [filtered.length, totalFromServer]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const start = (currentPage - 1) * pageSize;
-  const pageItems = filtered.slice(start, start + pageSize);
+  const pageItems = filtered;
   const selectablePageItems = useMemo(
     () => pageItems.filter((file) => !isRuntimeOnlyAuthFile(file)),
     [pageItems]
@@ -449,6 +465,9 @@ export function AuthFilesPage() {
             }}
             onClick={() => {
               setFilter(type);
+              if (type !== 'codex') {
+                setCodexPlan('all');
+              }
               setPage(1);
             }}
           >
@@ -463,7 +482,7 @@ export function AuthFilesPage() {
   const titleNode = (
     <div className={styles.titleWrapper}>
       <span>{t('auth_files.title_section')}</span>
-      {files.length > 0 && <span className={styles.countBadge}>{files.length}</span>}
+      {totalCount > 0 && <span className={styles.countBadge}>{totalCount}</span>}
     </div>
   );
 
@@ -541,6 +560,20 @@ export function AuthFilesPage() {
                 placeholder={t('auth_files.search_placeholder')}
               />
             </div>
+            {filter === 'codex' ? (
+              <div className={styles.filterItem}>
+                <label>{t('auth_files.plan_type_label', { defaultValue: 'Plan' })}</label>
+                <Select
+                  value={codexPlan}
+                  options={codexPlanOptions}
+                  onChange={(value) => {
+                    setCodexPlan(value);
+                    setPage(1);
+                  }}
+                  ariaLabel={t('auth_files.plan_type_label', { defaultValue: 'Plan' })}
+                />
+              </div>
+            ) : null}
             <div className={styles.filterItem}>
               <label>{t('auth_files.page_size_label')}</label>
               <input
@@ -615,7 +648,7 @@ export function AuthFilesPage() {
           </div>
         )}
 
-        {!loading && filtered.length > pageSize && (
+        {!loading && totalPages > 1 && (
           <div className={styles.pagination}>
             <Button
               variant="secondary"
@@ -629,7 +662,7 @@ export function AuthFilesPage() {
               {t('auth_files.pagination_info', {
                 current: currentPage,
                 total: totalPages,
-                count: filtered.length,
+                count: totalCount,
               })}
             </div>
             <Button

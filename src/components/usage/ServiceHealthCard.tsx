@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+﻿import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   collectUsageDetails,
@@ -41,9 +42,16 @@ export interface ServiceHealthCardProps {
   loading: boolean;
 }
 
+type TooltipPosition = {
+  top: number;
+  left: number;
+  placement: 'above' | 'below';
+};
+
 export function ServiceHealthCard({ usage, loading }: ServiceHealthCardProps) {
   const { t } = useTranslation();
   const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const healthData: ServiceHealthData = useMemo(() => {
@@ -58,59 +66,124 @@ export function ServiceHealthCard({ usage, loading }: ServiceHealthCardProps) {
     const handler = (e: PointerEvent) => {
       if (gridRef.current && !gridRef.current.contains(e.target as Node)) {
         setActiveTooltip(null);
+        setTooltipPosition(null);
       }
     };
     document.addEventListener('pointerdown', handler);
     return () => document.removeEventListener('pointerdown', handler);
   }, [activeTooltip]);
 
-  const handlePointerEnter = useCallback((e: React.PointerEvent, idx: number) => {
+  const updateTooltipPosition = useCallback((element: HTMLElement | null) => {
+    if (!element || typeof window === 'undefined') {
+      setTooltipPosition(null);
+      return;
+    }
+    const rect = element.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const tooltipWidth = Math.min(320, Math.max(220, viewportWidth - 24));
+    const offset = 10;
+    const left = Math.min(
+      Math.max(rect.left + rect.width / 2, tooltipWidth / 2 + 12),
+      viewportWidth - tooltipWidth / 2 - 12
+    );
+    const prefersBelow = rect.top < 96;
+    const canShowAbove = rect.top > 160;
+    const placement: 'above' | 'below' = prefersBelow && !canShowAbove ? 'below' : 'above';
+    const top =
+      placement === 'below'
+        ? Math.min(rect.bottom + offset, viewportHeight - 16)
+        : Math.max(rect.top - offset, 16);
+    setTooltipPosition({ top, left, placement });
+  }, []);
+
+  useEffect(() => {
+    if (activeTooltip === null) return;
+    const handleWindowChange = () => {
+      const activeEl =
+        gridRef.current?.querySelector<HTMLElement>(`[data-health-block-index="${activeTooltip}"]`) ?? null;
+      updateTooltipPosition(activeEl);
+    };
+    handleWindowChange();
+    window.addEventListener('resize', handleWindowChange);
+    window.addEventListener('scroll', handleWindowChange, true);
+    return () => {
+      window.removeEventListener('resize', handleWindowChange);
+      window.removeEventListener('scroll', handleWindowChange, true);
+    };
+  }, [activeTooltip, updateTooltipPosition]);
+
+  const handlePointerEnter = useCallback((e: React.PointerEvent<HTMLDivElement>, idx: number) => {
     if (e.pointerType === 'mouse') {
       setActiveTooltip(idx);
+      updateTooltipPosition(e.currentTarget);
     }
-  }, []);
+  }, [updateTooltipPosition]);
 
   const handlePointerLeave = useCallback((e: React.PointerEvent) => {
     if (e.pointerType === 'mouse') {
       setActiveTooltip(null);
+      setTooltipPosition(null);
     }
   }, []);
 
-  const handlePointerDown = useCallback((e: React.PointerEvent, idx: number) => {
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>, idx: number) => {
     if (e.pointerType === 'touch') {
       e.preventDefault();
-      setActiveTooltip((prev) => (prev === idx ? null : idx));
+      const next = activeTooltip === idx ? null : idx;
+      setActiveTooltip(next);
+      if (next === null) {
+        setTooltipPosition(null);
+      } else {
+        updateTooltipPosition(e.currentTarget);
+      }
     }
-  }, []);
+  }, [activeTooltip, updateTooltipPosition]);
 
-  const getTooltipPositionClass = (idx: number): string => {
-    const col = Math.floor(idx / healthData.rows);
-    if (col <= 2) return styles.healthTooltipLeft;
-    if (col >= healthData.cols - 3) return styles.healthTooltipRight;
-    return '';
-  };
-
-  const getTooltipVerticalClass = (idx: number): string => {
-    const row = idx % healthData.rows;
-    if (row <= 1) return styles.healthTooltipBelow;
-    return '';
-  };
-
-  const renderTooltip = (detail: StatusBlockDetail, idx: number) => {
+  const renderTooltip = (detail: StatusBlockDetail) => {
     const total = detail.success + detail.failure;
-    const posClass = getTooltipPositionClass(idx);
-    const vertClass = getTooltipVerticalClass(idx);
-    const timeRange = `${formatDateTime(detail.startTime)} – ${formatDateTime(detail.endTime)}`;
+    const timeRange = `${formatDateTime(detail.startTime)} - ${formatDateTime(detail.endTime)}`;
 
     return (
-      <div className={`${styles.healthTooltip} ${posClass} ${vertClass}`}>
+      <div
+        className={`${styles.healthTooltip} ${tooltipPosition?.placement === 'below' ? styles.healthTooltipBelow : ''}`}
+        style={
+          tooltipPosition
+            ? {
+                position: 'fixed',
+                top: tooltipPosition.top,
+                left: tooltipPosition.left,
+                transform:
+                  tooltipPosition.placement === 'below'
+                    ? 'translate(-50%, 0)'
+                    : 'translate(-50%, -100%)'
+              }
+            : undefined
+        }
+      >
         <span className={styles.healthTooltipTime}>{timeRange}</span>
         {total > 0 ? (
-          <span className={styles.healthTooltipStats}>
-            <span className={styles.healthTooltipSuccess}>{t('status_bar.success_short')} {detail.success}</span>
-            <span className={styles.healthTooltipFailure}>{t('status_bar.failure_short')} {detail.failure}</span>
-            <span className={styles.healthTooltipRate}>({(detail.rate * 100).toFixed(1)}%)</span>
-          </span>
+          <>
+            <span className={styles.healthTooltipStats}>
+              <span className={styles.healthTooltipSuccess}>{t('status_bar.success_short')} {detail.success}</span>
+              <span className={styles.healthTooltipFailure}>{t('status_bar.failure_short')} {detail.failure}</span>
+              <span className={styles.healthTooltipRate}>({(detail.rate * 100).toFixed(1)}%)</span>
+            </span>
+            {detail.failureReasons && detail.failureReasons.length > 0 ? (
+              <span className={styles.healthTooltipReasons}>
+                {detail.failureReasons.map((item) => (
+                  <span
+                    key={`${item.label}-${item.count}`}
+                    className={styles.healthTooltipReason}
+                    title={item.label}
+                  >
+                    <span className={styles.healthTooltipReasonCount}>×{item.count}</span>
+                    <span>{item.label}</span>
+                  </span>
+                ))}
+              </span>
+            ) : null}
+          </>
         ) : (
           <span className={styles.healthTooltipStats}>{t('status_bar.no_requests')}</span>
         )}
@@ -150,6 +223,7 @@ export function ServiceHealthCard({ usage, loading }: ServiceHealthCardProps) {
           return (
             <div
               key={idx}
+              data-health-block-index={idx}
               className={`${styles.healthBlockWrapper} ${isActive ? styles.healthBlockActive : ''}`}
               onPointerEnter={(e) => handlePointerEnter(e, idx)}
               onPointerLeave={handlePointerLeave}
@@ -159,12 +233,14 @@ export function ServiceHealthCard({ usage, loading }: ServiceHealthCardProps) {
                 className={`${styles.healthBlock} ${isIdle ? styles.healthBlockIdle : ''}`}
                 style={blockStyle}
               />
-              {isActive && renderTooltip(detail, idx)}
             </div>
           );
         })}
       </div>
       </div>
+      {activeTooltip !== null && tooltipPosition && typeof document !== 'undefined'
+        ? createPortal(renderTooltip(healthData.blockDetails[activeTooltip]), document.body)
+        : null}
       <div className={styles.healthLegend}>
         <span className={styles.healthLegendLabel}>{t('service_health.oldest')}</span>
         <div className={styles.healthLegendColors}>
@@ -178,3 +254,4 @@ export function ServiceHealthCard({ usage, loading }: ServiceHealthCardProps) {
     </div>
   );
 }
+

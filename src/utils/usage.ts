@@ -48,6 +48,8 @@ export interface UsageDetail {
     total_tokens: number;
   };
   failed: boolean;
+  status_code?: number;
+  error_message?: string;
   __modelName?: string;
   __timestampMs?: number;
 }
@@ -57,6 +59,11 @@ export interface UsageDetailWithEndpoint extends UsageDetail {
   __endpointMethod?: string;
   __endpointPath?: string;
   __timestampMs: number;
+}
+
+export interface FailureSummaryItem {
+  label: string;
+  count: number;
 }
 
 export interface ApiStats {
@@ -444,6 +451,53 @@ export function formatUsd(value: number): string {
 const usageDetailsCache = new WeakMap<object, UsageDetail[]>();
 const usageDetailsWithEndpointCache = new WeakMap<object, UsageDetailWithEndpoint[]>();
 
+const normalizeUsageErrorText = (value: unknown): string => {
+  if (typeof value === 'string') return value.trim();
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+};
+
+const extractUsageErrorMessage = (value: unknown): string => {
+  if (!isRecord(value)) return '';
+  const rootMessage = normalizeUsageErrorText(value.message);
+  const errorValue = isRecord(value.error) ? value.error : null;
+  if (!errorValue) return rootMessage;
+  const code = normalizeUsageErrorText(errorValue.code);
+  const type = normalizeUsageErrorText(errorValue.type);
+  const message = normalizeUsageErrorText(errorValue.message) || rootMessage;
+  const parts = [code || type, message].filter(Boolean);
+  return parts.join(': ');
+};
+
+export function summarizeUsageError(errorMessage: unknown, statusCode?: unknown): string {
+  const numericStatus = Number(statusCode);
+  const status = Number.isFinite(numericStatus) && numericStatus > 0 ? Math.trunc(numericStatus) : 0;
+  let summary = normalizeUsageErrorText(errorMessage);
+
+  if (summary.startsWith('{') || summary.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(summary);
+      const extracted = extractUsageErrorMessage(parsed);
+      if (extracted) summary = extracted;
+    } catch {
+      // keep original text when parsing fails
+    }
+  }
+
+  summary = summary.replace(/\s+/g, ' ').trim();
+  if (summary.length > 200) {
+    summary = `${summary.slice(0, 197)}...`;
+  }
+  if (!summary) {
+    return status > 0 ? `HTTP ${status}` : '';
+  }
+
+  const prefix = status > 0 ? `HTTP ${status}` : '';
+  if (!prefix) return summary;
+  if (summary.toUpperCase().startsWith(prefix.toUpperCase())) return summary;
+  return `${prefix} ${summary}`;
+}
+
 /**
  * 从使用数据中收集所有请求明细
  */
@@ -497,6 +551,8 @@ export function collectUsageDetails(usageData: unknown): UsageDetail[] {
           auth_index: detailRaw.auth_index as unknown as number,
           tokens: tokensRaw as unknown as UsageDetail['tokens'],
           failed: detailRaw.failed === true,
+          status_code: typeof detailRaw.status_code === 'number' ? detailRaw.status_code : undefined,
+          error_message: normalizeUsageErrorText(detailRaw.error_message),
           __modelName: modelName,
           __timestampMs: Number.isNaN(timestampMs) ? 0 : timestampMs,
         });
@@ -568,6 +624,8 @@ export function collectUsageDetailsWithEndpoint(usageData: unknown): UsageDetail
           auth_index: detailRaw.auth_index as unknown as number,
           tokens: tokensRaw as unknown as UsageDetail['tokens'],
           failed: detailRaw.failed === true,
+          status_code: typeof detailRaw.status_code === 'number' ? detailRaw.status_code : undefined,
+          error_message: normalizeUsageErrorText(detailRaw.error_message),
           __modelName: modelName,
           __endpoint: endpoint,
           __endpointMethod: endpointMethod,
@@ -1242,6 +1300,7 @@ export interface StatusBlockDetail {
   startTime: number;
   /** 格子结束时间戳 (ms) */
   endTime: number;
+  failureReasons?: FailureSummaryItem[];
 }
 
 /**
@@ -1272,9 +1331,9 @@ export function calculateStatusBarData(
   const windowStart = now - WINDOW_MS;
 
   // Initialize blocks
-  const blockStats: Array<{ success: number; failure: number }> = Array.from(
+  const blockStats: Array<{ success: number; failure: number; failureReasons: Map<string, number> }> = Array.from(
     { length: BLOCK_COUNT },
-    () => ({ success: 0, failure: 0 })
+    () => ({ success: 0, failure: 0, failureReasons: new Map<string, number>() })
   );
 
   let totalSuccess = 0;
@@ -1304,6 +1363,11 @@ export function calculateStatusBarData(
       if (detail.failed) {
         blockStats[blockIndex].failure += 1;
         totalFailure += 1;
+        const reason = summarizeUsageError(detail.error_message, detail.status_code) || 'Failed';
+        blockStats[blockIndex].failureReasons.set(
+          reason,
+          (blockStats[blockIndex].failureReasons.get(reason) ?? 0) + 1
+        );
       } else {
         blockStats[blockIndex].success += 1;
         totalSuccess += 1;
@@ -1328,12 +1392,17 @@ export function calculateStatusBarData(
     }
 
     const blockStartTime = windowStart + idx * BLOCK_DURATION_MS;
+    const failureReasons = Array.from(stat.failureReasons.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 3)
+      .map(([label, count]) => ({ label, count }));
     blockDetails.push({
       success: stat.success,
       failure: stat.failure,
       rate: total > 0 ? stat.success / total : -1,
       startTime: blockStartTime,
       endTime: blockStartTime + BLOCK_DURATION_MS,
+      failureReasons,
     });
   });
 
@@ -1376,9 +1445,9 @@ export function calculateServiceHealthData(
   const now = Date.now();
   const windowStart = now - WINDOW_MS;
 
-  const blockStats: Array<{ success: number; failure: number }> = Array.from(
+  const blockStats: Array<{ success: number; failure: number; failureReasons: Map<string, number> }> = Array.from(
     { length: BLOCK_COUNT },
-    () => ({ success: 0, failure: 0 })
+    () => ({ success: 0, failure: 0, failureReasons: new Map<string, number>() })
   );
 
   let totalSuccess = 0;
@@ -1398,6 +1467,11 @@ export function calculateServiceHealthData(
       if (detail.failed) {
         blockStats[blockIndex].failure += 1;
         totalFailure += 1;
+        const reason = summarizeUsageError(detail.error_message, detail.status_code) || 'Failed';
+        blockStats[blockIndex].failureReasons.set(
+          reason,
+          (blockStats[blockIndex].failureReasons.get(reason) ?? 0) + 1
+        );
       } else {
         blockStats[blockIndex].success += 1;
         totalSuccess += 1;
@@ -1421,12 +1495,17 @@ export function calculateServiceHealthData(
     }
 
     const blockStartTime = windowStart + idx * BLOCK_DURATION_MS;
+    const failureReasons = Array.from(stat.failureReasons.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 3)
+      .map(([label, count]) => ({ label, count }));
     blockDetails.push({
       success: stat.success,
       failure: stat.failure,
       rate: total > 0 ? stat.success / total : -1,
       startTime: blockStartTime,
       endTime: blockStartTime + BLOCK_DURATION_MS,
+      failureReasons,
     });
   });
 

@@ -28,6 +28,9 @@ export interface AuthFileItem {
   unavailable?: boolean;
   status?: string;
   statusMessage?: string;
+  account?: string;
+  account_type?: string;
+  plan_type?: string;
   lastRefresh?: string | number;
   modified?: number;
   [key: string]: unknown;
@@ -36,4 +39,7 @@ export interface AuthFileItem {
 export interface AuthFilesResponse {
   files: AuthFileItem[];
   total?: number;
+  limit?: number;
+  offset?: number;
+  q?: string;
 }

@@ -130,7 +130,7 @@ export function useTraceResolver(options: UseTraceResolverOptions): UseTraceReso
           force: forceUsage,
           staleTimeMs: USAGE_STATS_STALE_TIME_MS
         }),
-        authFresh ? Promise.resolve(null) : authFilesApi.list().catch(() => null)
+        authFresh ? Promise.resolve(null) : authFilesApi.list({ limit: 200, offset: 0 }).catch(() => null)
       ]);
 
       if (authFilesResponse !== null) {

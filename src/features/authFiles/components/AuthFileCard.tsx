@@ -109,6 +109,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
   const rawStatusMessage = getAuthFileStatusMessage(file);
   const hasStatusWarning =
     Boolean(rawStatusMessage) && !HEALTHY_STATUS_MESSAGES.has(rawStatusMessage.toLowerCase());
+  const accountText = typeof file.account === 'string' ? file.account.trim() : '';
   const planTypeText = typeof file.plan_type === 'string' ? file.plan_type.trim() : '';
   const effectiveProxyProfileText =
     typeof file.effective_proxy_profile === 'string' ? file.effective_proxy_profile.trim() : '';
@@ -159,9 +160,12 @@ export function AuthFileCard(props: AuthFileCardProps) {
           </div>
 
           {Boolean(
-            planTypeText || effectiveProxyProfileText || proxySourceText || proxyRuleText
+            accountText || planTypeText || effectiveProxyProfileText || proxySourceText || proxyRuleText
           ) && (
             <div className={styles.cardMeta}>
+              {accountText ? (
+                <span>{t('auth_files.account_label', { defaultValue: 'Account' })}: {accountText}</span>
+              ) : null}
               {planTypeText ? (
                 <span>{t('auth_files.plan_type_label', { defaultValue: 'Plan' })}: {planTypeText}</span>
               ) : null}

@@ -166,7 +166,7 @@ export function AuthFilesOAuthModelAliasEditPage() {
       setModelAliasUnsupported(false);
       try {
         const [filesResult, excludedResult, aliasResult] = await Promise.allSettled([
-          authFilesApi.list(),
+          authFilesApi.list({ limit: 200, offset: 0 }),
           authFilesApi.getOauthExcludedModels(),
           authFilesApi.getOauthModelAlias(),
         ]);
