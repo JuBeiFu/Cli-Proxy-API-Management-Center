@@ -6,6 +6,22 @@
 import type { GeminiKeyConfig, ProviderKeyConfig, OpenAIProviderConfig } from './provider';
 import type { AmpcodeConfig } from './ampcode';
 
+export interface ProxyProfileConfig {
+  name: string;
+  proxyUrl: string;
+  description?: string;
+}
+
+export interface ProxyRoutingRuleConfig {
+  name?: string;
+  providers?: string[];
+  planTypes?: string[];
+  authKinds?: string[];
+  proxyProfile?: string;
+  proxyUrl?: string;
+  disabled?: boolean;
+}
+
 export interface QuotaExceededConfig {
   switchProject?: boolean;
   switchPreviewModel?: boolean;
@@ -14,6 +30,8 @@ export interface QuotaExceededConfig {
 export interface Config {
   debug?: boolean;
   proxyUrl?: string;
+  proxyProfiles?: ProxyProfileConfig[];
+  proxyRoutingRules?: ProxyRoutingRuleConfig[];
   requestRetry?: number;
   quotaExceeded?: QuotaExceededConfig;
   usageStatisticsEnabled?: boolean;
@@ -53,7 +71,9 @@ export type RawConfigSection =
   | 'claude-api-key'
   | 'vertex-api-key'
   | 'openai-compatibility'
-  | 'oauth-excluded-models';
+  | 'oauth-excluded-models'
+  | 'proxy-profiles'
+  | 'proxy-routing';
 
 export interface ConfigCache {
   data: Config;

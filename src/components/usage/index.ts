@@ -41,3 +41,6 @@ export type { ServiceHealthCardProps } from './ServiceHealthCard';
 
 export { RequestEventsDetailsCard } from './RequestEventsDetailsCard';
 export type { RequestEventsDetailsCardProps } from './RequestEventsDetailsCard';
+
+export { ProxyStatsCard } from './ProxyStatsCard';
+export type { ProxyStatsCardProps } from './ProxyStatsCard';

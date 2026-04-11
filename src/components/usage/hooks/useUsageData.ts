@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { USAGE_STATS_STALE_TIME_MS, useNotificationStore, useUsageStatsStore } from '@/stores';
-import { usageApi } from '@/services/api/usage';
+import { usageApi, type ProxyStatsPayload } from '@/services/api/usage';
 import { downloadBlob } from '@/utils/download';
 import { loadModelPrices, saveModelPrices, type ModelPrice } from '@/utils/usage';
 
@@ -16,6 +16,7 @@ export interface UsagePayload {
 
 export interface UseUsageDataReturn {
   usage: UsagePayload | null;
+  proxyStats: ProxyStatsPayload | null;
   loading: boolean;
   error: string;
   lastRefreshedAt: Date | null;
@@ -40,18 +41,35 @@ export function useUsageData(): UseUsageDataReturn {
   const loadUsageStats = useUsageStatsStore((state) => state.loadUsageStats);
 
   const [modelPrices, setModelPrices] = useState<Record<string, ModelPrice>>({});
+  const [proxyStats, setProxyStats] = useState<ProxyStatsPayload | null>(null);
+  const [, setProxyStatsError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
+  const loadProxyStats = useCallback(async () => {
+    try {
+      const data = await usageApi.getProxyStats();
+      setProxyStats(data);
+      setProxyStatsError('');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      setProxyStatsError(message);
+    }
+  }, []);
+
   const loadUsage = useCallback(async () => {
-    await loadUsageStats({ force: true, staleTimeMs: USAGE_STATS_STALE_TIME_MS });
-  }, [loadUsageStats]);
+    await Promise.all([
+      loadUsageStats({ force: true, staleTimeMs: USAGE_STATS_STALE_TIME_MS }),
+      loadProxyStats()
+    ]);
+  }, [loadUsageStats, loadProxyStats]);
 
   useEffect(() => {
     void loadUsageStats({ staleTimeMs: USAGE_STATS_STALE_TIME_MS }).catch(() => {});
+    void loadProxyStats().catch(() => {});
     setModelPrices(loadModelPrices());
-  }, [loadUsageStats]);
+  }, [loadUsageStats, loadProxyStats]);
 
   const handleExport = async () => {
     setExporting(true);
@@ -140,6 +158,7 @@ export function useUsageData(): UseUsageDataReturn {
 
   return {
     usage,
+    proxyStats,
     loading,
     error,
     lastRefreshedAt,

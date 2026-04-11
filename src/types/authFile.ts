@@ -30,6 +30,10 @@ export interface AuthFileItem {
   statusMessage?: string;
   lastRefresh?: string | number;
   modified?: number;
+  quotaStatus?: string;
+  quotaRemaining?: number;
+  quotaTotal?: number;
+  quotaResetAt?: string | number;
   [key: string]: unknown;
 }
 

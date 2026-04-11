@@ -493,6 +493,10 @@ export const authFilesApi = {
     }
   },
 
+  // 刷新认证文件配额
+  refreshQuota: (fileName: string) =>
+    apiClient.post<Record<string, unknown>>(`/auth-files/refresh-quota`, { name: fileName }),
+
   // 获取认证凭证支持的模型
   async getModelsForAuthFile(name: string): Promise<{ id: string; display_name?: string; type?: string; owned_by?: string }[]> {
     const data = await apiClient.get<Record<string, unknown>>(

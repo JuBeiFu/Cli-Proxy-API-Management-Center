@@ -46,6 +46,7 @@ export type UseAuthFilesDataResult = {
   batchDownload: (names: string[]) => Promise<void>;
   batchSetStatus: (names: string[], enabled: boolean) => Promise<void>;
   batchDelete: (names: string[]) => void;
+  refreshQuota: (name: string) => Promise<void>;
 };
 
 export type UseAuthFilesDataOptions = {
@@ -564,6 +565,19 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
     [showNotification, t]
   );
 
+  const refreshQuota = useCallback(
+    async (name: string) => {
+      try {
+        await authFilesApi.refreshQuota(name);
+        showNotification(t('auth_files.quota_refresh_success', { name }), 'success');
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : t('common.unknown_error');
+        showNotification(t('auth_files.quota_refresh_failed', { name, message: errorMessage }), 'error');
+      }
+    },
+    [showNotification, t]
+  );
+
   const batchDelete = useCallback(
     (names: string[]) => {
       const uniqueNames = Array.from(new Set(names));
@@ -630,5 +644,6 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
     batchDownload,
     batchSetStatus,
     batchDelete,
+    refreshQuota,
   };
 }
