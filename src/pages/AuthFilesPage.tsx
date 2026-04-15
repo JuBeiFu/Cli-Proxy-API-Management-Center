@@ -58,6 +58,7 @@ import {
   writePersistedAuthFilesCompactMode,
   type AuthFilesSortMode,
 } from '@/features/authFiles/uiState';
+import { authFilesApi } from '@/services/api/authFiles';
 import { useAuthStore, useNotificationStore, useThemeStore } from '@/stores';
 import styles from './AuthFilesPage.module.scss';
 
@@ -88,6 +89,8 @@ export function AuthFilesPage() {
 
   const [filter, setFilter] = useState<'all' | string>('all');
   const [problemOnly, setProblemOnly] = useState(false);
+  const [availableOnly, setAvailableOnly] = useState(false);
+  const [quotaChecking, setQuotaChecking] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -354,10 +357,31 @@ export function AuthFilesPage() {
     return Array.from(types);
   }, [files]);
 
-  const filesMatchingProblemFilter = useMemo(
-    () => (problemOnly ? files.filter(hasAuthFileStatusMessage) : files),
-    [files, problemOnly]
-  );
+  const filesMatchingProblemFilter = useMemo(() => {
+    let result = problemOnly ? files.filter(hasAuthFileStatusMessage) : files;
+    if (availableOnly) {
+      const now = Date.now();
+      result = result.filter((f) => {
+        if (f.disabled) return false;
+        const quota = f.quota as { exceeded?: boolean; next_recover_at?: string } | undefined;
+        if (quota?.exceeded && quota.next_recover_at && new Date(quota.next_recover_at).getTime() > now) return false;
+        if (f.unavailable && f.next_retry_after && new Date(f.next_retry_after as string).getTime() > now) return false;
+        return true;
+      });
+    }
+    return result;
+  }, [files, problemOnly, availableOnly]);
+
+  const availableCount = useMemo(() => {
+    const now = Date.now();
+    return files.filter((f) => {
+      if (f.disabled) return false;
+      const quota = f.quota as { exceeded?: boolean; next_recover_at?: string } | undefined;
+      if (quota?.exceeded && quota.next_recover_at && new Date(quota.next_recover_at).getTime() > now) return false;
+      if (f.unavailable && f.next_retry_after && new Date(f.next_retry_after as string).getTime() > now) return false;
+      return true;
+    }).length;
+  }, [files]);
 
   const sortOptions = useMemo(
     () => [
@@ -680,6 +704,29 @@ export function AuthFilesPage() {
             >
               {deleteAllButtonLabel}
             </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={async () => {
+                setQuotaChecking(true);
+                try {
+                  const result = await authFilesApi.batchQuotaCheck();
+                  showNotification(
+                    t('auth_files.quota_check_done', `配额检查完成: ${result.available} 可用 / ${result.exhausted} 耗尽 / ${result.total} 总计`),
+                    'success'
+                  );
+                  loadFiles();
+                } catch (err) {
+                  showNotification(t('auth_files.quota_check_failed', '配额检查失败'), 'error');
+                } finally {
+                  setQuotaChecking(false);
+                }
+              }}
+              disabled={disableControls || loading || quotaChecking}
+              loading={quotaChecking}
+            >
+              {t('auth_files.batch_quota_check', '批量配额检查')}
+            </Button>
             <input
               ref={fileInputRef}
               type="file"
@@ -753,6 +800,21 @@ export function AuthFilesPage() {
                         label={
                           <span className={styles.filterToggleLabel}>
                             {t('auth_files.problem_filter_only')}
+                          </span>
+                        }
+                      />
+                    </div>
+                    <div className={styles.filterToggleCard}>
+                      <ToggleSwitch
+                        checked={availableOnly}
+                        onChange={(value) => {
+                          setAvailableOnly(value);
+                          setPage(1);
+                        }}
+                        ariaLabel={t('auth_files.available_only', '仅可用')}
+                        label={
+                          <span className={styles.filterToggleLabel}>
+                            {t('auth_files.available_only', '仅可用')} ({availableCount}/{files.length})
                           </span>
                         }
                       />

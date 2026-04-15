@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from './client';
-import type { AuthFilesResponse } from '@/types/authFile';
+import type { AuthBanRecordItem, AuthBanRecordsResponse, AuthFilesAvailableResponse, AuthFilesResponse, QuotaCheckResponse } from '@/types/authFile';
 import type { OAuthModelAliasEntry } from '@/types';
 
 type StatusError = { status?: number };
@@ -33,6 +33,20 @@ type AuthFileBatchDeleteResult = {
   deleted: number;
   files: string[];
   failed: AuthFileBatchFailure[];
+};
+type AuthBanRecordPayload = {
+  name?: unknown;
+  account?: unknown;
+  provider?: unknown;
+  source?: unknown;
+  reason?: unknown;
+  created_at?: unknown;
+  banned_at?: unknown;
+};
+type AuthBanRecordsApiResponse = {
+  date?: unknown;
+  total?: unknown;
+  records?: unknown;
 };
 
 export const AUTH_FILE_INVALID_JSON_OBJECT_ERROR = 'AUTH_FILE_INVALID_JSON_OBJECT';
@@ -299,6 +313,51 @@ const parseAuthFileJsonObject = (rawText: string): Record<string, unknown> => {
   return { ...(parsed as Record<string, unknown>) };
 };
 
+const normalizeBanRecordText = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+};
+
+const normalizeBanRecordItem = (value: unknown): AuthBanRecordItem | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+  const entry = value as AuthBanRecordPayload;
+  const reason = normalizeBanRecordText(entry.reason) ?? '';
+  const bannedAt = normalizeBanRecordText(entry.banned_at) ?? '';
+
+  return {
+    name: normalizeBanRecordText(entry.name),
+    account: normalizeBanRecordText(entry.account),
+    provider: normalizeBanRecordText(entry.provider),
+    source: normalizeBanRecordText(entry.source),
+    reason,
+    createdAt: normalizeBanRecordText(entry.created_at),
+    bannedAt,
+  };
+};
+
+const normalizeBanRecordsResponse = (
+  payload: AuthBanRecordsApiResponse | undefined
+): AuthBanRecordsResponse => {
+  const recordsRaw = Array.isArray(payload?.records) ? payload.records : [];
+  const records = recordsRaw
+    .map((item) => normalizeBanRecordItem(item))
+    .filter((item): item is AuthBanRecordItem => item !== null);
+
+  const date = normalizeBanRecordText(payload?.date);
+  const total =
+    typeof payload?.total === 'number' && Number.isFinite(payload.total)
+      ? payload.total
+      : records.length;
+
+  return {
+    date,
+    total,
+    records,
+  };
+};
+
 const saveAuthFileText = async (name: string, text: string) => {
   const file = new File([text], name, { type: 'application/json' });
   await authFilesApi.upload(file);
@@ -397,6 +456,19 @@ const OAUTH_MODEL_ALIAS_ENDPOINT = '/oauth-model-alias';
 export const authFilesApi = {
   list: async () => dedupeAuthFilesResponse(await apiClient.get<AuthFilesResponse>('/auth-files')),
 
+  listAvailable: async () =>
+    apiClient.get<AuthFilesAvailableResponse>('/auth-files/available'),
+
+  batchQuotaCheck: async (authIndices?: string[]) =>
+    apiClient.post<QuotaCheckResponse>('/auth-files/quota-check',
+      authIndices ? { auth_indices: authIndices } : { check_all: true }
+    ),
+
+  listBanRecords: async () =>
+    normalizeBanRecordsResponse(
+      await apiClient.get<AuthBanRecordsApiResponse>('/auth-files/ban-records')
+    ),
+
   setStatus: (name: string, disabled: boolean) =>
     apiClient.patch<AuthFileStatusResponse>('/auth-files/status', { name, disabled }),
 
@@ -492,10 +564,6 @@ export const authFilesApi = {
       await apiClient.delete(`${OAUTH_MODEL_ALIAS_ENDPOINT}?channel=${encodeURIComponent(normalizedChannel)}`);
     }
   },
-
-  // 刷新认证文件配额
-  refreshQuota: (fileName: string) =>
-    apiClient.post<Record<string, unknown>>(`/auth-files/refresh-quota`, { name: fileName }),
 
   // 获取认证凭证支持的模型
   async getModelsForAuthFile(name: string): Promise<{ id: string; display_name?: string; type?: string; owned_by?: string }[]> {

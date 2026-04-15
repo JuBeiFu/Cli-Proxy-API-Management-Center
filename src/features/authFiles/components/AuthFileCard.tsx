@@ -116,22 +116,30 @@ export function AuthFileCard(props: AuthFileCardProps) {
 
   const priorityValue = parsePriorityValue(file.priority ?? file['priority']);
   const noteValue = typeof file.note === 'string' ? file.note.trim() : '';
+  const quotaState = file.quota as { exceeded?: boolean; reason?: string; next_recover_at?: string } | undefined;
+  const modelSummary = file.model_states_summary as { available?: number; cooldown?: number; disabled?: number } | undefined;
+  const isQuotaExhausted = !!(quotaState?.exceeded && quotaState.next_recover_at && new Date(quotaState.next_recover_at).getTime() > Date.now());
+
   const stateLabel = isRuntimeOnly
     ? t('auth_files.type_virtual') || '虚拟认证文件'
     : file.disabled
       ? t('auth_files.health_status_disabled')
-      : hasStatusWarning
-        ? t('auth_files.health_status_warning')
-        : rawStatusMessage
-          ? t('auth_files.health_status_healthy')
-          : t('auth_files.status_toggle_label');
+      : isQuotaExhausted
+        ? (quotaState?.reason === 'usage_limit' ? t('auth_files.quota_exhausted', '配额耗尽') : t('auth_files.quota_rate_limited', '限流冷却'))
+        : hasStatusWarning
+          ? t('auth_files.health_status_warning')
+          : rawStatusMessage
+            ? t('auth_files.health_status_healthy')
+            : t('auth_files.status_toggle_label');
   const stateBadgeClass = isRuntimeOnly
     ? styles.stateBadgeVirtual
     : file.disabled
       ? styles.stateBadgeDisabled
-      : hasStatusWarning
-        ? styles.stateBadgeWarning
-        : styles.stateBadgeActive;
+      : isQuotaExhausted
+        ? styles.stateBadgeCooldown
+        : hasStatusWarning
+          ? styles.stateBadgeWarning
+          : styles.stateBadgeActive;
 
   return (
     <div
@@ -212,9 +220,28 @@ export function AuthFileCard(props: AuthFileCardProps) {
                 </span>
               </div>
             )}
+            {!compact && modelSummary && (modelSummary.cooldown || modelSummary.disabled) ? (
+              <div className={styles.metaItem}>
+                <span className={styles.metaLabel}>{t('auth_files.model_states', '模型状态')}</span>
+                <span className={styles.metaValue}>
+                  {modelSummary.available ?? 0}/{(modelSummary.available ?? 0) + (modelSummary.cooldown ?? 0) + (modelSummary.disabled ?? 0)}
+                </span>
+              </div>
+            ) : null}
           </div>
 
-          {rawStatusMessage && hasStatusWarning && (
+          {isQuotaExhausted && quotaState?.next_recover_at && (
+            <div className={styles.healthStatusMessage} title={`${quotaState.reason === 'usage_limit' ? '配额耗尽' : '限流冷却'} - 恢复时间: ${new Date(quotaState.next_recover_at).toLocaleString()}`}>
+              <IconInfo className={styles.messageIcon} size={14} />
+              <span>
+                {quotaState.reason === 'usage_limit' ? '配额耗尽' : '限流冷却'}
+                {' · '}
+                {t('auth_files.quota_recover_at', '恢复')}: {new Date(quotaState.next_recover_at).toLocaleString()}
+              </span>
+            </div>
+          )}
+
+          {rawStatusMessage && hasStatusWarning && !isQuotaExhausted && (
             <div className={styles.healthStatusMessage} title={rawStatusMessage}>
               <IconInfo className={styles.messageIcon} size={14} />
               <span>{rawStatusMessage}</span>
