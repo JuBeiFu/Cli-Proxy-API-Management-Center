@@ -13,6 +13,7 @@ import type { AuthFileItem, ResolvedTheme } from '@/types';
 import { getStatusFromError } from '@/utils/quota';
 import { QuotaCard } from './QuotaCard';
 import type { QuotaStatusState } from './QuotaCard';
+import { isQuotaManagedAuthAvailable } from './logic';
 import { useQuotaLoader } from './useQuotaLoader';
 import type { QuotaConfig } from './quotaConfigs';
 import { useGridColumns } from './useGridColumns';
@@ -116,7 +117,7 @@ export function QuotaSection<TState extends QuotaStatusState, TData>({
   const [viewMode, setViewMode] = useState<ViewMode>('paged');
   const [showTooManyWarning, setShowTooManyWarning] = useState(false);
 
-  const filteredFiles = useMemo(() => files.filter((file) => config.filterFn(file)), [
+  const filteredFiles = useMemo(() => files.filter((file) => config.filterFn(file) && isQuotaManagedAuthAvailable(file)), [
     files,
     config
   ]);

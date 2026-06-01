@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
-import { useAuthStore } from '@/stores';
+import { useAuthStore, useQuotaStore } from '@/stores';
 import { authFilesApi, configFileApi } from '@/services/api';
 import {
   QuotaSection,
@@ -15,12 +15,14 @@ import {
   GEMINI_CLI_CONFIG,
   KIMI_CONFIG
 } from '@/components/quota';
+import { mergeCodexQuotaSnapshots } from '@/components/quota/logic';
 import type { AuthFileItem } from '@/types';
 import styles from './QuotaPage.module.scss';
 
 export function QuotaPage() {
   const { t } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const setCodexQuota = useQuotaStore((state) => state.setCodexQuota);
 
   const [files, setFiles] = useState<AuthFileItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,14 +44,16 @@ export function QuotaPage() {
     setError('');
     try {
       const data = await authFilesApi.list();
-      setFiles(data?.files || []);
+      const nextFiles = data?.files || [];
+      setFiles(nextFiles);
+      setCodexQuota((prev) => mergeCodexQuotaSnapshots(prev, nextFiles));
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : t('notification.refresh_failed');
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [setCodexQuota, t]);
 
   const handleHeaderRefresh = useCallback(async () => {
     await Promise.all([loadConfig(), loadFiles()]);

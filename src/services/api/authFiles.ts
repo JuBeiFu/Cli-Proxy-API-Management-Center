@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from './client';
-import type { AuthBanRecordItem, AuthBanRecordsResponse, AuthFilesAvailableResponse, AuthFilesResponse, QuotaCheckResponse } from '@/types/authFile';
+import type { AuthBanRecordItem, AuthBanRecordsResponse, AuthFilesAvailableResponse, AuthFilesResponse, QuotaCheckResponse, RefreshAccountsResponse } from '@/types/authFile';
 import type { OAuthModelAliasEntry } from '@/types';
 
 type StatusError = { status?: number };
@@ -462,6 +462,11 @@ export const authFilesApi = {
   batchQuotaCheck: async (authIndices?: string[]) =>
     apiClient.post<QuotaCheckResponse>('/auth-files/quota-check',
       authIndices ? { auth_indices: authIndices } : { check_all: true }
+    ),
+
+  refreshAccounts: async (coolingOnly = false) =>
+    apiClient.post<RefreshAccountsResponse>('/auth-files/refresh',
+      { provider: 'codex', cooling_only: coolingOnly }
     ),
 
   listBanRecords: async () =>

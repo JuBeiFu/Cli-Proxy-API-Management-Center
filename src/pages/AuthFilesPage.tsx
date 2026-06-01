@@ -91,6 +91,7 @@ export function AuthFilesPage() {
   const [problemOnly, setProblemOnly] = useState(false);
   const [availableOnly, setAvailableOnly] = useState(false);
   const [quotaChecking, setQuotaChecking] = useState(false);
+  const [refreshingAccounts, setRefreshingAccounts] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -726,6 +727,29 @@ export function AuthFilesPage() {
               loading={quotaChecking}
             >
               {t('auth_files.batch_quota_check', '批量配额检查')}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={async () => {
+                setRefreshingAccounts(true);
+                try {
+                  const result = await authFilesApi.refreshAccounts(false);
+                  showNotification(
+                    t('auth_files.refresh_accounts_done', `刷新完成: 恢复 ${result.recovered} / 升级 ${result.upgraded} / 仍冷却 ${result.still_cooling} / 共 ${result.total}`),
+                    'success'
+                  );
+                  loadFiles();
+                } catch {
+                  showNotification(t('auth_files.refresh_accounts_failed', '刷新账号失败'), 'error');
+                } finally {
+                  setRefreshingAccounts(false);
+                }
+              }}
+              disabled={disableControls || loading || refreshingAccounts}
+              loading={refreshingAccounts}
+            >
+              {t('auth_files.refresh_accounts', '刷新账号额度/计划')}
             </Button>
             <input
               ref={fileInputRef}

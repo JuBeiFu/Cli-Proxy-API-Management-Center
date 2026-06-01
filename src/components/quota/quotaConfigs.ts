@@ -31,6 +31,7 @@ import type {
 } from '@/types';
 import { apiCallApi, authFilesApi, getApiCallErrorMessage } from '@/services/api';
 import { useQuotaStore } from '@/stores';
+import { resolvePreferredCodexPlanType } from './logic';
 import {
   ANTIGRAVITY_QUOTA_URLS,
   ANTIGRAVITY_REQUEST_HEADERS,
@@ -437,7 +438,10 @@ const fetchCodexQuota = async (
 
   const planTypeFromUsage = normalizePlanType(payload.plan_type ?? payload.planType);
   const windows = buildCodexQuotaWindows(payload, t);
-  return { planType: planTypeFromUsage ?? planTypeFromFile, windows };
+  return {
+    planType: resolvePreferredCodexPlanType(planTypeFromUsage, planTypeFromFile),
+    windows,
+  };
 };
 
 const GEMINI_CLI_G1_CREDIT_TYPE = 'GOOGLE_ONE_AI';
@@ -744,6 +748,7 @@ const renderCodexItems = (
   const { createElement: h, Fragment } = React;
   const windows = quota.windows ?? [];
   const planType = quota.planType ?? null;
+  const snapshotUpdatedAt = quota.snapshotUpdatedAt ?? null;
 
   const getPlanLabel = (pt?: string | null): string | null => {
     const normalized = normalizePlanType(pt);
@@ -770,6 +775,17 @@ const renderCodexItems = (
         { key: 'plan', className: styleMap.codexPlan },
         h('span', { className: styleMap.codexPlanLabel }, t('codex_quota.plan_label')),
         h('span', { className: valueClass }, planLabel)
+      )
+    );
+  }
+
+  if (snapshotUpdatedAt) {
+    nodes.push(
+      h(
+        'div',
+        { key: 'snapshot-updated-at', className: styleMap.codexPlan },
+        h('span', { className: styleMap.codexPlanLabel }, t('codex_quota.snapshot_updated_at')),
+        h('span', { className: styleMap.codexPlanValue }, formatQuotaResetTime(snapshotUpdatedAt))
       )
     );
   }

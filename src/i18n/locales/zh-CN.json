@@ -113,6 +113,7 @@
     "api_keys": "API 密钥",
     "ai_providers": "AI 提供商",
     "auth_files": "认证文件",
+    "auth_ban_records": "封号记录",
     "oauth": "OAuth 登录",
     "quota_management": "配额管理",
     "usage_stats": "使用统计",
@@ -608,6 +609,19 @@
     "quota_refresh_success": "已刷新 \"{{name}}\" 的额度",
     "quota_refresh_failed": "刷新 \"{{name}}\" 的额度失败：{{message}}"
   },
+  "auth_ban_records": {
+    "title": "封号记录",
+    "title_section": "今日封号记录",
+    "description": "查看今天整天被系统自动删除的账号记录，便于排查 401、403 及其他终局认证失效问题。",
+    "current_day": "统计日期",
+    "total_count": "共 {{count}} 条",
+    "account": "账号",
+    "created_at": "创建时间",
+    "banned_at": "封号时间",
+    "reason": "封号原因",
+    "empty_title": "今天暂无封号记录",
+    "empty_desc": "当前还没有检测到被自动删除的账号。"
+  },
   "antigravity_quota": {
     "title": "Antigravity 额度",
     "empty_title": "暂无 Antigravity 认证",
@@ -671,7 +685,8 @@
     "plan_team": "Team",
     "plan_free": "Free",
     "plan_pro": "Pro 20x",
-    "plan_prolite": "Pro 5x"
+    "plan_prolite": "Pro 5x",
+    "snapshot_updated_at": "快照时间"
   },
   "gemini_cli_quota": {
     "title": "Gemini CLI 额度",

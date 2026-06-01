@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type RefObj
 import { useTranslation } from 'react-i18next';
 import { authFilesApi } from '@/services/api';
 import { apiClient } from '@/services/api/client';
-import { useNotificationStore } from '@/stores';
+import { useNotificationStore, useQuotaStore } from '@/stores';
 import type { AuthFileItem } from '@/types';
+import { mergeCodexQuotaSnapshots } from '@/components/quota/logic';
 import { formatFileSize } from '@/utils/format';
 import { MAX_AUTH_FILE_SIZE } from '@/utils/constants';
 import { downloadBlob } from '@/utils/download';
@@ -46,7 +47,6 @@ export type UseAuthFilesDataResult = {
   batchDownload: (names: string[]) => Promise<void>;
   batchSetStatus: (names: string[], enabled: boolean) => Promise<void>;
   batchDelete: (names: string[]) => void;
-  refreshQuota: (name: string) => Promise<void>;
 };
 
 export type UseAuthFilesDataOptions = {
@@ -57,6 +57,7 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
   const { refreshKeyStats } = options;
   const { t } = useTranslation();
   const { showNotification, showConfirmation } = useNotificationStore();
+  const setCodexQuota = useQuotaStore((state) => state.setCodexQuota);
 
   const [files, setFiles] = useState<AuthFileItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,14 +168,16 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
     setError('');
     try {
       const data = await authFilesApi.list();
-      setFiles(data?.files || []);
+      const nextFiles = data?.files || [];
+      setFiles(nextFiles);
+      setCodexQuota((prev) => mergeCodexQuotaSnapshots(prev, nextFiles));
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : t('notification.refresh_failed');
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [setCodexQuota, t]);
 
   const handleUploadClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -565,19 +568,6 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
     [showNotification, t]
   );
 
-  const refreshQuota = useCallback(
-    async (name: string) => {
-      try {
-        await authFilesApi.refreshQuota(name);
-        showNotification(t('auth_files.quota_refresh_success', { name }), 'success');
-      } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : t('common.unknown_error');
-        showNotification(t('auth_files.quota_refresh_failed', { name, message: errorMessage }), 'error');
-      }
-    },
-    [showNotification, t]
-  );
-
   const batchDelete = useCallback(
     (names: string[]) => {
       const uniqueNames = Array.from(new Set(names));
@@ -644,6 +634,5 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
     batchDownload,
     batchSetStatus,
     batchDelete,
-    refreshQuota,
   };
 }

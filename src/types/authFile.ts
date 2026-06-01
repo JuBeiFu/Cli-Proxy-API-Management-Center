@@ -30,6 +30,18 @@ export interface AuthFileModelStatesSummary {
   disabled?: number;
 }
 
+export interface AuthFileCodexQuotaSnapshot {
+  window?: string;
+  remaining_ratio?: number | string;
+  remainingRatio?: number | string;
+  limit?: number | string;
+  remaining?: number | string;
+  reset_at?: string | number;
+  resetAt?: string | number;
+  updated_at?: string | number;
+  updatedAt?: string | number;
+}
+
 export interface AuthFileItem {
   name: string;
   type?: AuthFileType | string;
@@ -48,6 +60,8 @@ export interface AuthFileItem {
   quotaTotal?: number;
   quotaResetAt?: string | number;
   quota?: AuthFileQuotaState;
+  codex_quota_snapshot?: AuthFileCodexQuotaSnapshot;
+  codexQuotaSnapshot?: AuthFileCodexQuotaSnapshot;
   model_states_summary?: AuthFileModelStatesSummary;
   plan_type?: string;
   next_retry_after?: string;
@@ -81,6 +95,30 @@ export interface QuotaCheckResponse {
   available: number;
   exhausted: number;
   errored: number;
+}
+
+export interface RefreshAccountsResult {
+  auth_id: string;
+  auth_index?: string;
+  email?: string;
+  was_cooling: boolean;
+  still_cooling: boolean;
+  recovered: boolean;
+  plan_before?: string;
+  plan_after?: string;
+  upgraded: boolean;
+  downgraded: boolean;
+  error?: string;
+}
+
+export interface RefreshAccountsResponse {
+  total: number;
+  recovered: number;
+  upgraded: number;
+  downgraded: number;
+  still_cooling: number;
+  errored: number;
+  results: RefreshAccountsResult[];
 }
 
 export interface AuthFilesResponse {

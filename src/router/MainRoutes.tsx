@@ -11,6 +11,7 @@ import { AiProvidersOpenAIEditLayout } from '@/pages/AiProvidersOpenAIEditLayout
 import { AiProvidersOpenAIEditPage } from '@/pages/AiProvidersOpenAIEditPage';
 import { AiProvidersOpenAIModelsPage } from '@/pages/AiProvidersOpenAIModelsPage';
 import { AiProvidersVertexEditPage } from '@/pages/AiProvidersVertexEditPage';
+import { AuthBanRecordsPage } from '@/pages/AuthBanRecordsPage';
 import { AuthFilesPage } from '@/pages/AuthFilesPage';
 import { AuthFilesOAuthExcludedEditPage } from '@/pages/AuthFilesOAuthExcludedEditPage';
 import { AuthFilesOAuthModelAliasEditPage } from '@/pages/AuthFilesOAuthModelAliasEditPage';
@@ -68,6 +69,7 @@ const mainRoutes = [
   { path: '/ai-providers', element: <AiProvidersPage /> },
   { path: '/ai-providers/*', element: <AiProvidersPage /> },
   { path: '/auth-files', element: <AuthFilesPage /> },
+  { path: '/auth-ban-records', element: <AuthBanRecordsPage /> },
   { path: '/auth-files/oauth-excluded', element: <AuthFilesOAuthExcludedEditPage /> },
   { path: '/auth-files/oauth-model-alias', element: <AuthFilesOAuthModelAliasEditPage /> },
   { path: '/oauth', element: <OAuthPage /> },

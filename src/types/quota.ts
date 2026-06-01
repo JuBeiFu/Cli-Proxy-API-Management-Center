@@ -242,6 +242,7 @@ export interface CodexQuotaState {
   status: 'idle' | 'loading' | 'success' | 'error';
   windows: CodexQuotaWindow[];
   planType?: string | null;
+  snapshotUpdatedAt?: string | null;
   error?: string;
   errorStatus?: number;
 }

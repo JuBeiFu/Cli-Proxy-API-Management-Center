@@ -8,6 +8,7 @@ import {
   GEMINI_CLI_CONFIG,
   KIMI_CONFIG
 } from '@/components/quota';
+import { isQuotaManagedAuthAvailable } from '@/components/quota/logic';
 import { useNotificationStore, useQuotaStore } from '@/stores';
 import type { AuthFileItem } from '@/types';
 import { getStatusFromError } from '@/utils/quota';
@@ -59,7 +60,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
   const refreshQuotaForFile = useCallback(async () => {
     if (disableControls) return;
     if (isRuntimeOnlyAuthFile(file)) return;
-    if (file.disabled) return;
+    if (!isQuotaManagedAuthAvailable(file)) return;
     if (quota?.status === 'loading') return;
 
     const config = getQuotaConfig(quotaType) as unknown as {
@@ -100,7 +101,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
   };
 
   const quotaStatus = quota?.status ?? 'idle';
-  const canRefreshQuota = !disableControls && !file.disabled;
+  const canRefreshQuota = !disableControls && isQuotaManagedAuthAvailable(file);
   const quotaErrorMessage = resolveQuotaErrorMessage(
     t,
     quota?.errorStatus,

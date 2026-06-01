@@ -113,6 +113,7 @@
     "api_keys": "API Keys",
     "ai_providers": "AI Providers",
     "auth_files": "Auth Files",
+    "auth_ban_records": "Ban Records",
     "oauth": "OAuth Login",
     "quota_management": "Quota Management",
     "usage_stats": "Usage Statistics",
@@ -608,6 +609,19 @@
     "quota_refresh_success": "Quota refreshed for \"{{name}}\"",
     "quota_refresh_failed": "Failed to refresh quota for \"{{name}}\": {{message}}"
   },
+  "auth_ban_records": {
+    "title": "Ban Records",
+    "title_section": "Today's Ban Records",
+    "description": "Review credentials that were auto-deleted today after terminal auth failures such as 401, 403, or other unrecoverable account errors.",
+    "current_day": "Record day",
+    "total_count": "{{count}} records",
+    "account": "Account",
+    "created_at": "Created At",
+    "banned_at": "Banned At",
+    "reason": "Ban Reason",
+    "empty_title": "No ban records for today",
+    "empty_desc": "No auto-deleted credentials have been recorded yet."
+  },
   "antigravity_quota": {
     "title": "Antigravity Quota",
     "empty_title": "No Antigravity Auth Files",
@@ -671,7 +685,8 @@
     "plan_team": "Team",
     "plan_free": "Free",
     "plan_pro": "Pro 20x",
-    "plan_prolite": "Pro 5x"
+    "plan_prolite": "Pro 5x",
+    "snapshot_updated_at": "Snapshot"
   },
   "gemini_cli_quota": {
     "title": "Gemini CLI Quota",
