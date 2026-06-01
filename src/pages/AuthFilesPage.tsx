@@ -92,6 +92,7 @@ export function AuthFilesPage() {
   const [availableOnly, setAvailableOnly] = useState(false);
   const [quotaChecking, setQuotaChecking] = useState(false);
   const [refreshingAccounts, setRefreshingAccounts] = useState(false);
+  const [refreshProgress, setRefreshProgress] = useState<{ done: number; total: number } | null>(null);
   const [compactMode, setCompactMode] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -733,23 +734,52 @@ export function AuthFilesPage() {
               size="sm"
               onClick={async () => {
                 setRefreshingAccounts(true);
+                setRefreshProgress(null);
+                const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
                 try {
-                  const result = await authFilesApi.refreshAccounts(false);
-                  showNotification(
-                    t('auth_files.refresh_accounts_done', `刷新完成: 恢复 ${result.recovered} / 升级 ${result.upgraded} / 仍冷却 ${result.still_cooling} / 共 ${result.total}`),
-                    'success'
-                  );
-                  loadFiles();
+                  const start = await authFilesApi.refreshAccountsStart(false);
+                  if (!start.job_id) {
+                    showNotification(t('auth_files.refresh_accounts_failed', '刷新账号失败'), 'error');
+                    return;
+                  }
+                  // Poll the async job until it finishes. Generous cap so a full
+                  // ~300-account sweep (1-2 min) has room to complete.
+                  let job = null as Awaited<ReturnType<typeof authFilesApi.refreshAccountsStatus>> | null;
+                  for (let i = 0; i < 600; i++) {
+                    await sleep(1500);
+                    try {
+                      job = await authFilesApi.refreshAccountsStatus(start.job_id);
+                    } catch {
+                      continue; // transient; keep polling
+                    }
+                    setRefreshProgress({ done: job.done, total: job.total });
+                    if (job.status === 'done') break;
+                  }
+                  if (job && job.status === 'done') {
+                    showNotification(
+                      t('auth_files.refresh_accounts_done', `刷新完成: 恢复 ${job.recovered} / 升级 ${job.upgraded} / 仍冷却 ${job.still_cooling} / 共 ${job.total}`),
+                      'success'
+                    );
+                    loadFiles();
+                  } else {
+                    showNotification(
+                      t('auth_files.refresh_accounts_running', `刷新仍在后台进行 (${job?.done ?? 0}/${job?.total ?? 0}),稍后请刷新列表查看`),
+                      'warning'
+                    );
+                  }
                 } catch {
                   showNotification(t('auth_files.refresh_accounts_failed', '刷新账号失败'), 'error');
                 } finally {
                   setRefreshingAccounts(false);
+                  setRefreshProgress(null);
                 }
               }}
               disabled={disableControls || loading || refreshingAccounts}
               loading={refreshingAccounts}
             >
-              {t('auth_files.refresh_accounts', '刷新账号额度/计划')}
+              {refreshingAccounts && refreshProgress
+                ? t('auth_files.refresh_accounts_progress', `刷新中 ${refreshProgress.done}/${refreshProgress.total}`)
+                : t('auth_files.refresh_accounts', '刷新账号额度/计划')}
             </Button>
             <input
               ref={fileInputRef}

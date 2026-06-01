@@ -121,6 +121,29 @@ export interface RefreshAccountsResponse {
   results: RefreshAccountsResult[];
 }
 
+// Async refresh: POST returns a job handle; progress is polled via the status endpoint.
+export interface RefreshAccountsStartResponse {
+  job_id: string;
+  started: boolean;
+  status: string;
+}
+
+export interface RefreshAccountsJobView {
+  job_id: string;
+  status: 'running' | 'done' | string;
+  cooling_only: boolean;
+  total: number;
+  done: number;
+  recovered: number;
+  upgraded: number;
+  downgraded: number;
+  still_cooling: number;
+  errored: number;
+  started_at?: string;
+  finished_at?: string;
+  results?: RefreshAccountsResult[];
+}
+
 export interface AuthFilesResponse {
   files: AuthFileItem[];
   total?: number;

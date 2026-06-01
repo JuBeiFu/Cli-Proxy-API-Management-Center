@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from './client';
-import type { AuthBanRecordItem, AuthBanRecordsResponse, AuthFilesAvailableResponse, AuthFilesResponse, QuotaCheckResponse, RefreshAccountsResponse } from '@/types/authFile';
+import type { AuthBanRecordItem, AuthBanRecordsResponse, AuthFilesAvailableResponse, AuthFilesResponse, QuotaCheckResponse, RefreshAccountsStartResponse, RefreshAccountsJobView } from '@/types/authFile';
 import type { OAuthModelAliasEntry } from '@/types';
 
 type StatusError = { status?: number };
@@ -464,9 +464,14 @@ export const authFilesApi = {
       authIndices ? { auth_indices: authIndices } : { check_all: true }
     ),
 
-  refreshAccounts: async (coolingOnly = false) =>
-    apiClient.post<RefreshAccountsResponse>('/auth-files/refresh',
+  refreshAccountsStart: async (coolingOnly = false) =>
+    apiClient.post<RefreshAccountsStartResponse>('/auth-files/refresh',
       { provider: 'codex', cooling_only: coolingOnly }
+    ),
+
+  refreshAccountsStatus: async (jobId: string) =>
+    apiClient.get<RefreshAccountsJobView>(
+      `/auth-files/refresh/status?job_id=${encodeURIComponent(jobId)}`
     ),
 
   listBanRecords: async () =>
